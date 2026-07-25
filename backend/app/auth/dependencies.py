@@ -18,13 +18,9 @@ async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),
     db: AsyncSession = Depends(get_db),
 ) -> User:
-    payload = decode_token(credentials.credentials)
-    if payload.get("type") != "access":
-        raise UnauthorizedError("Invalid token type")
+    payload = decode_token(credentials.credentials, expected_type="access")
     user_id = payload.get("sub")
-    result = await db.execute(
-        select(User).options(selectinload(User.role)).where(User.id == uuid.UUID(user_id))
-    )
+    result = await db.execute(select(User).options(selectinload(User.role)).where(User.id == uuid.UUID(user_id)))
     user = result.scalar_one_or_none()
     if not user or not user.is_active:
         raise UnauthorizedError("User not found or inactive")

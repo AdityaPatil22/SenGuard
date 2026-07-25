@@ -1,3 +1,5 @@
+from functools import lru_cache
+
 from langgraph.graph import END, StateGraph
 
 from app.langgraph.nodes import (
@@ -29,4 +31,6 @@ def build_evaluation_graph() -> StateGraph:
     return graph
 
 
-evaluation_workflow = build_evaluation_graph().compile()
+@lru_cache(maxsize=1)
+def get_evaluation_workflow():
+    return build_evaluation_graph().compile()

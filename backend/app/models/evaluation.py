@@ -13,6 +13,7 @@ from app.db.base import Base, TimestampMixin, UUIDMixin
 if TYPE_CHECKING:
     from app.models.project import Project
     from app.models.report import Report
+    from app.models.user import User
 
 
 class EvaluationStatus(enum.StrEnum):
@@ -32,5 +33,8 @@ class Evaluation(Base, UUIDMixin, TimestampMixin):
 
     project_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("projects.id"), nullable=False)
     project: Mapped[Project] = relationship(back_populates="evaluations")
+
+    reviewer_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"))
+    reviewer: Mapped[User | None] = relationship(back_populates="reviewed_evaluations", foreign_keys=[reviewer_id])
 
     report: Mapped[Report | None] = relationship(back_populates="evaluation")

@@ -26,6 +26,8 @@ class Settings(BaseSettings):
     gemini_api_key: str = ""
     gemini_model: str = "gemini-2.5-flash"
 
+    cors_origins: str = "http://localhost:5173"
+
     storage_backend: str = "local"
     storage_local_path: str = "./storage"
 

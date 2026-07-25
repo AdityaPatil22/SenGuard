@@ -26,7 +26,7 @@ export interface User {
 
 export type ProjectStatus = "draft" | "submitted" | "evaluating" | "evaluated" | "approved" | "rejected";
 export type EvaluationStatus = "pending" | "running" | "completed" | "failed";
-export type ReportStatus = "draft" | "published" | "archived";
+export type ReportStatus = "draft" | "pending_review" | "in_review" | "approved" | "rejected" | "published" | "archived";
 
 export interface Project {
   id: string;
@@ -45,6 +45,7 @@ export interface Evaluation {
   summary: string | null;
   model_name: string | null;
   project_id: string;
+  reviewer_id: string | null;
   created_at: string;
   updated_at: string;
   project?: Project;
