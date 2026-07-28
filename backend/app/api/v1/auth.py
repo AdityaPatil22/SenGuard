@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.dependencies import get_current_user
@@ -25,7 +25,8 @@ async def github_callback(data: GitHubCallbackRequest, db: AsyncSession = Depend
 
 
 @router.post("/refresh")
-async def refresh_token(data: RefreshRequest, db: AsyncSession = Depends(get_db)):
+@limiter.limit("10/minute")
+async def refresh_token(request: Request, data: RefreshRequest, db: AsyncSession = Depends(get_db)):
     service = AuthService(db)
     tokens = await service.refresh(data.refresh_token)
     return success(data=tokens.model_dump(), message="Token refreshed")

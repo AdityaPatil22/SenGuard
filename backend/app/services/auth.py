@@ -71,9 +71,7 @@ class AuthService:
         }
 
     async def refresh(self, refresh_token: str) -> TokenResponse:
-        payload = decode_token(refresh_token)
-        if payload.get("type") != "refresh":
-            raise UnauthorizedError("Invalid refresh token")
+        payload = decode_token(refresh_token, expected_type="refresh")
         user = await self.user_repo.get_by_id_with_role(uuid.UUID(payload["sub"]))
         if not user:
             raise UnauthorizedError("User not found")

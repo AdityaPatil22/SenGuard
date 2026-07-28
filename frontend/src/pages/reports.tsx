@@ -15,9 +15,12 @@ import type { Report, ReportStatus } from "@/types/api";
 
 const STATUS_VARIANT: Record<ReportStatus, "default" | "secondary" | "destructive" | "success" | "warning"> = {
   draft: "secondary",
+  pending_review: "warning",
   in_review: "warning",
   approved: "success",
   rejected: "destructive",
+  published: "success",
+  archived: "default",
 };
 
 const STATUS_LABEL: Record<ReportStatus, string> = {

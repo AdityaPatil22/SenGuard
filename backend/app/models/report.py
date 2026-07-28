@@ -17,9 +17,12 @@ if TYPE_CHECKING:
 
 class ReportStatus(enum.StrEnum):
     DRAFT = "draft"
+    PENDING_REVIEW = "pending_review"
     IN_REVIEW = "in_review"
     APPROVED = "approved"
     REJECTED = "rejected"
+    PUBLISHED = "published"
+    ARCHIVED = "archived"
 
 
 class Report(Base, UUIDMixin, TimestampMixin):

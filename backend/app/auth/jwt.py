@@ -22,11 +22,13 @@ def create_refresh_token(subject: str) -> str:
     return jwt.encode(payload, settings.secret_key, algorithm=settings.algorithm)
 
 
-def decode_token(token: str) -> dict:
+def decode_token(token: str, expected_type: str | None = None) -> dict:
     try:
         payload = jwt.decode(token, settings.secret_key, algorithms=[settings.algorithm])
         if payload.get("sub") is None:
             raise UnauthorizedError("Invalid token")
+        if expected_type and payload.get("type") != expected_type:
+            raise UnauthorizedError("Invalid token type")
         return payload
     except JWTError:
         raise UnauthorizedError("Invalid token")

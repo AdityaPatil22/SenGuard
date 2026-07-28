@@ -29,6 +29,8 @@ class Settings(BaseSettings):
     github_client_id: str = ""
     github_client_secret: str = ""
 
+    cors_origins: str = "http://localhost:5173"
+
     storage_backend: str = "local"
     storage_local_path: str = "./storage"
 
