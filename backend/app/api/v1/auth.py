@@ -43,7 +43,6 @@ async def get_me(current_user: User = Depends(get_current_user)):
             "github_username": current_user.github_username,
             "email": current_user.email,
             "avatar_url": current_user.avatar_url,
-            "role": current_user.role.name,
         },
         message="Current user",
     )

@@ -1,4 +1,4 @@
-import { Play, Plus } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Clock, FlaskConical, Loader2, Play, Plus, ShieldCheck, XCircle } from "lucide-react";
 import { useState, type FormEvent } from "react";
 
 import { Badge } from "@/components/ui/badge";
@@ -8,17 +8,20 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
+import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useEvaluations, useCreateEvaluation, useRunEvaluation } from "@/hooks/use-evaluations";
 import { useProjects } from "@/hooks/use-projects";
-import type { EvaluationStatus } from "@/types/api";
+import type { Evaluation, EvaluationStatus } from "@/types/api";
 
-const STATUS_VARIANT: Record<EvaluationStatus, "default" | "secondary" | "destructive" | "success" | "warning"> = {
-  pending: "secondary",
-  running: "warning",
-  completed: "success",
-  failed: "destructive",
+const STATUS_CONFIG: Record<
+  EvaluationStatus,
+  { variant: "default" | "secondary" | "destructive" | "success" | "warning"; icon: typeof Clock; label: string }
+> = {
+  pending: { variant: "secondary", icon: Clock, label: "Pending" },
+  running: { variant: "warning", icon: Loader2, label: "Running" },
+  completed: { variant: "success", icon: CheckCircle2, label: "Completed" },
+  failed: { variant: "destructive", icon: XCircle, label: "Failed" },
 };
 
 function riskColor(score: number | null) {
@@ -28,8 +31,153 @@ function riskColor(score: number | null) {
   return "text-destructive";
 }
 
+function riskLabel(score: number | null) {
+  if (score == null) return "Not scored";
+  if (score < 0.3) return "Low Risk";
+  if (score < 0.6) return "Medium Risk";
+  return "High Risk";
+}
+
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+}
+
+const NODE_LABELS: Record<string, { label: string; icon: typeof ShieldCheck }> = {
+  prompt_security: { label: "Prompt Security", icon: ShieldCheck },
+  dataset_validation: { label: "Dataset Validation", icon: CheckCircle2 },
+  model_evaluation: { label: "Model Evaluation", icon: AlertTriangle },
+};
+
+function NodeResultCard({ nodeKey, data }: { nodeKey: string; data: unknown }) {
+  const config = NODE_LABELS[nodeKey] || { label: nodeKey, icon: CheckCircle2 };
+  const Icon = config.icon;
+
+  if (!data || typeof data !== "object") return null;
+
+  const entries = Object.entries(data as Record<string, unknown>);
+
+  return (
+    <div className="rounded-lg border p-4 space-y-3">
+      <div className="flex items-center gap-2">
+        <Icon className="h-4 w-4 text-primary" />
+        <h4 className="text-sm font-semibold">{config.label}</h4>
+      </div>
+      <div className="space-y-2">
+        {entries.map(([key, value]) => (
+          <div key={key} className="text-sm">
+            <span className="font-medium text-muted-foreground capitalize">{key.replace(/_/g, " ")}:</span>{" "}
+            {typeof value === "string" ? (
+              <span className="text-foreground">{value}</span>
+            ) : typeof value === "number" ? (
+              <span className={`font-mono font-medium ${riskColor(value)}`}>{value}</span>
+            ) : Array.isArray(value) ? (
+              <ul className="mt-1 ml-4 list-disc space-y-0.5">
+                {(value as unknown[]).slice(0, 10).map((item, i) => (
+                  <li key={i} className="text-foreground text-xs">
+                    {typeof item === "string" ? item : JSON.stringify(item)}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <pre className="mt-1 text-xs bg-muted p-2 rounded overflow-x-auto max-h-32">
+                {JSON.stringify(value, null, 2)}
+              </pre>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function EvaluationDetail({ evaluation, onClose }: { evaluation: Evaluation; onClose: () => void }) {
+  const status = evaluation.status.toLowerCase() as EvaluationStatus;
+  const config = STATUS_CONFIG[status] || STATUS_CONFIG.pending;
+  const StatusIcon = config.icon;
+  const nodeResults = evaluation.node_results as Record<string, unknown> | null;
+
+  return (
+    <Dialog open onOpenChange={() => onClose()}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            Evaluation Results
+            <Badge variant={config.variant} className="ml-2 gap-1">
+              <StatusIcon className={`h-3 w-3 ${status === "running" ? "animate-spin" : ""}`} />
+              {config.label}
+            </Badge>
+          </DialogTitle>
+          <DialogDescription>
+            {evaluation.model_name ? `Model: ${evaluation.model_name}` : "Default model"} &middot;{" "}
+            {formatDate(evaluation.created_at)}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4 mt-2">
+          {evaluation.risk_score != null && (
+            <div className="flex items-center gap-4 p-4 rounded-lg bg-muted/50">
+              <div>
+                <p className="text-xs text-muted-foreground font-medium">Risk Score</p>
+                <p className={`text-3xl font-bold font-mono ${riskColor(evaluation.risk_score)}`}>
+                  {evaluation.risk_score.toFixed(2)}
+                </p>
+              </div>
+              <div>
+                <p className={`text-sm font-semibold ${riskColor(evaluation.risk_score)}`}>
+                  {riskLabel(evaluation.risk_score)}
+                </p>
+              </div>
+            </div>
+          )}
+
+          {status === "failed" && evaluation.error_message && (
+            <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4">
+              <p className="text-sm font-medium text-destructive mb-1">Error</p>
+              <p className="text-sm text-foreground whitespace-pre-wrap">{evaluation.error_message}</p>
+            </div>
+          )}
+
+          {status === "running" && (
+            <div className="flex items-center gap-3 p-4 rounded-lg bg-warning/5 border border-warning/20">
+              <Loader2 className="h-5 w-5 text-warning animate-spin" />
+              <div>
+                <p className="text-sm font-medium">Evaluation in progress</p>
+                <p className="text-xs text-muted-foreground">
+                  The AI pipeline is analyzing the project. This typically takes 1-3 minutes.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {nodeResults && Object.keys(nodeResults).length > 0 && (
+            <>
+              <Separator />
+              <div>
+                <h3 className="text-sm font-semibold mb-3">Pipeline Results</h3>
+                <div className="space-y-3">
+                  {Object.entries(nodeResults).map(([key, value]) => (
+                    <NodeResultCard key={key} nodeKey={key} data={value} />
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
+
+          {evaluation.summary && (
+            <>
+              <Separator />
+              <div>
+                <h3 className="text-sm font-semibold mb-2">Report Summary</h3>
+                <div className="text-sm text-foreground whitespace-pre-wrap bg-muted/30 p-4 rounded-lg">
+                  {evaluation.summary}
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
 }
 
 export function EvaluationsPage() {
@@ -41,6 +189,9 @@ export function EvaluationsPage() {
   const [projectId, setProjectId] = useState("");
   const [modelName, setModelName] = useState("");
   const [runningId, setRunningId] = useState<string | null>(null);
+  const [detailEval, setDetailEval] = useState<Evaluation | null>(null);
+
+  const projectMap = Object.fromEntries(projects.map((p) => [p.id, p.name]));
 
   function handleCreate(e: FormEvent) {
     e.preventDefault();
@@ -56,7 +207,8 @@ export function EvaluationsPage() {
     );
   }
 
-  function handleRun(id: string) {
+  function handleRun(id: string, e: React.MouseEvent) {
+    e.stopPropagation();
     setRunningId(id);
     runEvaluation.mutate(id, { onSettled: () => setRunningId(null) });
   }
@@ -66,7 +218,9 @@ export function EvaluationsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Evaluations</h1>
-          <p className="text-sm text-muted-foreground">Governance evaluation results and risk scores</p>
+          <p className="text-sm text-muted-foreground">
+            Run governance evaluations on your projects and view risk analysis results
+          </p>
         </div>
         <Button size="sm" className="gap-2" onClick={() => setDialogOpen(true)}>
           <Plus className="h-4 w-4" />
@@ -75,89 +229,147 @@ export function EvaluationsPage() {
       </div>
 
       {isLoading ? (
-        <Card>
-          <CardContent className="p-6 space-y-3">
-            <Skeleton className="h-4 w-full" />
-            <Skeleton className="h-4 w-3/4" />
-            <Skeleton className="h-4 w-1/2" />
-          </CardContent>
-        </Card>
+        <div className="space-y-3">
+          {[1, 2, 3].map((i) => (
+            <Card key={i}>
+              <CardContent className="p-4">
+                <div className="flex items-center gap-4">
+                  <Skeleton className="h-10 w-10 rounded-lg" />
+                  <div className="flex-1 space-y-2">
+                    <Skeleton className="h-4 w-48" />
+                    <Skeleton className="h-3 w-32" />
+                  </div>
+                  <Skeleton className="h-6 w-20 rounded-full" />
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       ) : evaluations.length === 0 ? (
         <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <p className="text-sm text-muted-foreground">No evaluations yet</p>
-            <Button variant="link" size="sm" onClick={() => setDialogOpen(true)}>
-              Create your first evaluation
+          <CardContent className="flex flex-col items-center justify-center py-16 text-center">
+            <div className="h-12 w-12 rounded-xl bg-muted flex items-center justify-center mb-4">
+              <FlaskConical className="h-6 w-6 text-muted-foreground" />
+            </div>
+            <h3 className="text-sm font-semibold mb-1">No evaluations yet</h3>
+            <p className="text-sm text-muted-foreground mb-4 max-w-sm">
+              Create an evaluation to run your project through the AI governance pipeline. You'll get a risk score and
+              detailed analysis.
+            </p>
+            <Button size="sm" onClick={() => setDialogOpen(true)} className="gap-2">
+              <Plus className="h-4 w-4" />
+              Create Evaluation
             </Button>
           </CardContent>
         </Card>
       ) : (
-        <Card>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Model</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Risk Score</TableHead>
-                <TableHead className="hidden md:table-cell">Summary</TableHead>
-                <TableHead className="hidden sm:table-cell">Date</TableHead>
-                <TableHead className="w-20" />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {evaluations.map((e) => {
-                const status = e.status.toLowerCase() as EvaluationStatus;
-                return (
-                  <TableRow key={e.id}>
-                    <TableCell className="font-medium font-mono text-xs">{e.model_name ?? "—"}</TableCell>
-                    <TableCell>
-                      <Badge variant={STATUS_VARIANT[status] ?? "secondary"}>{status}</Badge>
-                    </TableCell>
-                    <TableCell>
-                      <span className={`font-mono text-sm font-medium ${riskColor(e.risk_score)}`}>
-                        {e.risk_score != null ? e.risk_score.toFixed(2) : "—"}
-                      </span>
-                    </TableCell>
-                    <TableCell className="hidden md:table-cell text-muted-foreground max-w-xs truncate">
-                      {status === "failed" && e.error_message ? e.error_message : (e.summary ?? "—")}
-                    </TableCell>
-                    <TableCell className="hidden sm:table-cell text-muted-foreground">
-                      {formatDate(e.created_at)}
-                    </TableCell>
-                    <TableCell>
+        <div className="space-y-2">
+          {evaluations.map((e) => {
+            const status = e.status.toLowerCase() as EvaluationStatus;
+            const config = STATUS_CONFIG[status] || STATUS_CONFIG.pending;
+            const StatusIcon = config.icon;
+            const isRunning = runningId === e.id || status === "running";
+
+            return (
+              <Card
+                key={e.id}
+                className="transition-colors hover:bg-muted/30 cursor-pointer"
+                onClick={() => setDetailEval(e)}
+              >
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-4">
+                    <div
+                      className={`h-10 w-10 rounded-lg flex items-center justify-center shrink-0 ${
+                        status === "completed"
+                          ? "bg-success/10"
+                          : status === "failed"
+                            ? "bg-destructive/10"
+                            : status === "running"
+                              ? "bg-warning/10"
+                              : "bg-muted"
+                      }`}
+                    >
+                      <StatusIcon
+                        className={`h-5 w-5 ${
+                          status === "completed"
+                            ? "text-success"
+                            : status === "failed"
+                              ? "text-destructive"
+                              : status === "running"
+                                ? "text-warning animate-spin"
+                                : "text-muted-foreground"
+                        }`}
+                      />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-medium truncate">
+                          {projectMap[e.project_id] || "Unknown Project"}
+                        </p>
+                        <Badge variant={config.variant} className="shrink-0">
+                          {config.label}
+                        </Badge>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {e.model_name || "Default model"} &middot; {formatDate(e.created_at)}
+                        {status === "failed" && e.error_message && (
+                          <span className="text-destructive"> &middot; {e.error_message.slice(0, 80)}</span>
+                        )}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-3 shrink-0">
+                      {e.risk_score != null && (
+                        <div className="text-right hidden sm:block">
+                          <p className={`text-lg font-bold font-mono ${riskColor(e.risk_score)}`}>
+                            {e.risk_score.toFixed(2)}
+                          </p>
+                          <p className={`text-[10px] font-medium ${riskColor(e.risk_score)}`}>
+                            {riskLabel(e.risk_score)}
+                          </p>
+                        </div>
+                      )}
                       {status === "pending" && (
                         <Button
-                          variant="ghost"
+                          variant="default"
                           size="sm"
                           className="gap-1.5"
-                          disabled={runningId === e.id}
-                          onClick={() => handleRun(e.id)}
+                          disabled={isRunning}
+                          onClick={(ev) => handleRun(e.id, ev)}
                         >
-                          <Play className="h-3.5 w-3.5" />
-                          {runningId === e.id ? "Running..." : "Run"}
+                          {isRunning ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <Play className="h-3.5 w-3.5" />
+                          )}
+                          {isRunning ? "Starting..." : "Run"}
                         </Button>
                       )}
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </Card>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
       )}
+
+      {detailEval && <EvaluationDetail evaluation={detailEval} onClose={() => setDetailEval(null)} />}
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>New Evaluation</DialogTitle>
-            <DialogDescription>Run a governance evaluation on a project.</DialogDescription>
+            <DialogDescription>
+              Select a project to run through the AI governance pipeline. The evaluation checks for security risks,
+              data quality, and model reliability.
+            </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleCreate} className="space-y-4 mt-4">
             <div className="space-y-2">
               <Label htmlFor="eval-project">Project</Label>
               <Select id="eval-project" value={projectId} onChange={(e) => setProjectId(e.target.value)} required>
                 <option value="" disabled>
-                  Select a project
+                  Choose a project to evaluate
                 </option>
                 {projects.map((p) => (
                   <option key={p.id} value={p.id}>
@@ -165,22 +377,28 @@ export function EvaluationsPage() {
                   </option>
                 ))}
               </Select>
+              {projects.length === 0 && (
+                <p className="text-xs text-muted-foreground">No projects found. Create a project first.</p>
+              )}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="eval-model">Model name</Label>
+              <Label htmlFor="eval-model">Model name (optional)</Label>
               <Input
                 id="eval-model"
                 value={modelName}
                 onChange={(e) => setModelName(e.target.value)}
                 placeholder="gemini-2.5-flash"
               />
+              <p className="text-xs text-muted-foreground">
+                The LLM model your project uses. Helps the evaluator assess model-specific risks.
+              </p>
             </div>
             <div className="flex justify-end gap-2">
               <Button type="button" variant="ghost" onClick={() => setDialogOpen(false)}>
                 Cancel
               </Button>
               <Button type="submit" disabled={createEvaluation.isPending}>
-                {createEvaluation.isPending ? "Creating..." : "Create"}
+                {createEvaluation.isPending ? "Creating..." : "Create Evaluation"}
               </Button>
             </div>
           </form>

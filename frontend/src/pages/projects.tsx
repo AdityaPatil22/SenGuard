@@ -1,4 +1,4 @@
-import { Github, Pencil, Plus, Search, Trash2 } from "lucide-react";
+import { FolderKanban, Github, Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { useState, useMemo, type FormEvent } from "react";
 
 import { Badge } from "@/components/ui/badge";
@@ -102,7 +102,7 @@ export function ProjectsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Projects</h1>
-          <p className="text-sm text-muted-foreground">AI projects submitted for governance evaluation</p>
+          <p className="text-sm text-muted-foreground">Import and manage AI projects for governance evaluation</p>
         </div>
         <Button size="sm" className="gap-2" onClick={openCreate}>
           <Plus className="h-4 w-4" />
@@ -120,10 +120,17 @@ export function ProjectsPage() {
         </Card>
       ) : projects.length === 0 ? (
         <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <p className="text-sm text-muted-foreground">No projects yet</p>
-            <Button variant="link" size="sm" onClick={openCreate}>
-              Create your first project
+          <CardContent className="flex flex-col items-center justify-center py-16 text-center">
+            <div className="h-12 w-12 rounded-xl bg-muted flex items-center justify-center mb-4">
+              <FolderKanban className="h-6 w-6 text-muted-foreground" />
+            </div>
+            <h3 className="text-sm font-semibold mb-1">No projects yet</h3>
+            <p className="text-sm text-muted-foreground mb-4 max-w-sm">
+              Import a GitHub repository to get started with AI governance evaluation.
+            </p>
+            <Button size="sm" onClick={openCreate} className="gap-2">
+              <Plus className="h-4 w-4" />
+              New Project
             </Button>
           </CardContent>
         </Card>

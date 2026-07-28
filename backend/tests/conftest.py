@@ -2,7 +2,6 @@ import uuid as _uuid
 
 import pytest
 from httpx import ASGITransport, AsyncClient
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from app.auth.jwt import create_access_token, create_refresh_token
@@ -10,7 +9,7 @@ from app.config import get_settings
 from app.db.base import Base
 from app.db.session import get_db
 from app.main import app
-from app.models.user import Role, RoleEnum, User
+from app.models.user import User
 
 settings = get_settings()
 
@@ -22,12 +21,6 @@ TestSessionLocal = async_sessionmaker(test_engine, class_=AsyncSession, expire_o
 async def setup_db():
     async with test_engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-    async with TestSessionLocal() as session:
-        for role_name in RoleEnum:
-            exists = (await session.execute(select(Role).where(Role.name == role_name))).scalar_one_or_none()
-            if not exists:
-                session.add(Role(name=role_name, description=f"{role_name.value} role"))
-        await session.commit()
     yield
     async with test_engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
@@ -52,13 +45,12 @@ async def client(db_session):
 
 @pytest.fixture
 async def auth_tokens(db_session):
-    role = (await db_session.execute(select(Role).where(Role.name == RoleEnum.DEVELOPER))).scalar_one()
     gid = _uuid.uuid4().int >> 65
-    user = User(github_id=gid, github_username="testuser", email=f"test-{gid}@example.com", role_id=role.id)
+    user = User(github_id=gid, github_username="testuser", email=f"test-{gid}@example.com")
     db_session.add(user)
     await db_session.commit()
     await db_session.refresh(user)
     return {
-        "access_token": create_access_token(str(user.id), {"role": role.name}),
+        "access_token": create_access_token(str(user.id)),
         "refresh_token": create_refresh_token(str(user.id)),
     }

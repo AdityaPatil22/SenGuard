@@ -1,7 +1,8 @@
-import { FileText, FlaskConical, FolderKanban, ShieldAlert } from "lucide-react";
+import { ArrowRight, FileText, FlaskConical, FolderKanban, ShieldAlert } from "lucide-react";
 import { Link } from "react-router-dom";
 
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useEvaluations } from "@/hooks/use-evaluations";
 import { useProjects } from "@/hooks/use-projects";
@@ -24,14 +25,23 @@ function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
+function riskColor(score: number | null) {
+  if (score == null) return "text-muted-foreground";
+  if (score < 0.3) return "text-success";
+  if (score < 0.6) return "text-warning";
+  return "text-destructive";
+}
+
 export function DashboardPage() {
   const { data: projects = [] } = useProjects();
   const { data: evaluations = [] } = useEvaluations();
   const { data: reports = [] } = useReports();
 
+  const scoredEvals = evaluations.filter((e) => e.risk_score != null);
   const avgRisk =
-    evaluations.filter((e) => e.risk_score != null).reduce((sum, e) => sum + (e.risk_score ?? 0), 0) /
-      (evaluations.filter((e) => e.risk_score != null).length || 1) || 0;
+    scoredEvals.length > 0
+      ? scoredEvals.reduce((sum, e) => sum + (e.risk_score ?? 0), 0) / scoredEvals.length
+      : 0;
 
   const stats = [
     { label: "Projects", value: projects.length, icon: FolderKanban, href: "/projects" },
@@ -44,12 +54,12 @@ export function DashboardPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
-        <p className="text-sm text-muted-foreground">AI governance overview</p>
+        <p className="text-sm text-muted-foreground">Your AI governance overview at a glance</p>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {stats.map((s) => (
-          <Link key={s.label} to={s.href}>
+          <Link key={s.label} to={s.href} className="block">
             <Card className="transition-colors hover:bg-muted/50">
               <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle className="text-sm font-medium text-muted-foreground">{s.label}</CardTitle>
@@ -64,17 +74,20 @@ export function DashboardPage() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        {/* Recent projects */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="text-base">Recent Projects</CardTitle>
-            <Link to="/projects" className="text-sm text-primary hover:underline">
-              View all
-            </Link>
+            <Button variant="ghost" size="sm" asChild className="gap-1 text-muted-foreground">
+              <Link to="/projects">
+                View all <ArrowRight className="h-3.5 w-3.5" />
+              </Link>
+            </Button>
           </CardHeader>
           <CardContent>
             {projects.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No projects yet. Create one to get started.</p>
+              <p className="text-sm text-muted-foreground">
+                No projects yet. Import a GitHub repository to get started.
+              </p>
             ) : (
               <div className="space-y-3">
                 {projects.slice(0, 5).map((p) => (
@@ -91,25 +104,31 @@ export function DashboardPage() {
           </CardContent>
         </Card>
 
-        {/* Recent evaluations */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="text-base">Recent Evaluations</CardTitle>
-            <Link to="/evaluations" className="text-sm text-primary hover:underline">
-              View all
-            </Link>
+            <Button variant="ghost" size="sm" asChild className="gap-1 text-muted-foreground">
+              <Link to="/evaluations">
+                View all <ArrowRight className="h-3.5 w-3.5" />
+              </Link>
+            </Button>
           </CardHeader>
           <CardContent>
             {evaluations.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No evaluations yet. Submit a project for review.</p>
+              <p className="text-sm text-muted-foreground">
+                No evaluations yet. Create one from the Evaluations page.
+              </p>
             ) : (
               <div className="space-y-3">
                 {evaluations.slice(0, 5).map((e) => (
                   <div key={e.id} className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium">{e.model_name ?? "Unknown model"}</p>
+                      <p className="text-sm font-medium">{e.model_name ?? "Default model"}</p>
                       <p className="text-xs text-muted-foreground">
-                        Risk: {e.risk_score != null ? e.risk_score.toFixed(2) : "—"}
+                        Risk:{" "}
+                        <span className={riskColor(e.risk_score)}>
+                          {e.risk_score != null ? e.risk_score.toFixed(2) : "—"}
+                        </span>
                       </p>
                     </div>
                     <Badge variant={STATUS_VARIANT[e.status] ?? "secondary"}>{e.status}</Badge>

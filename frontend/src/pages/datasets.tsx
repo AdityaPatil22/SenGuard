@@ -1,4 +1,4 @@
-import { Plus, Trash2, Upload } from "lucide-react";
+import { Database, Plus, Trash2, Upload } from "lucide-react";
 import { useRef, useState, type FormEvent } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -60,7 +60,7 @@ export function DatasetsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Datasets</h1>
-          <p className="text-sm text-muted-foreground">Evaluation datasets linked to projects</p>
+          <p className="text-sm text-muted-foreground">Upload and manage evaluation datasets for your projects</p>
         </div>
         <Button size="sm" className="gap-2" onClick={openCreate}>
           <Plus className="h-4 w-4" />
@@ -78,10 +78,17 @@ export function DatasetsPage() {
         </Card>
       ) : datasets.length === 0 ? (
         <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <p className="text-sm text-muted-foreground">No datasets yet</p>
-            <Button variant="link" size="sm" onClick={openCreate}>
-              Upload your first dataset
+          <CardContent className="flex flex-col items-center justify-center py-16 text-center">
+            <div className="h-12 w-12 rounded-xl bg-muted flex items-center justify-center mb-4">
+              <Database className="h-6 w-6 text-muted-foreground" />
+            </div>
+            <h3 className="text-sm font-semibold mb-1">No datasets yet</h3>
+            <p className="text-sm text-muted-foreground mb-4 max-w-sm">
+              Upload evaluation datasets to include in your governance analysis. Supports CSV, JSON, JSONL, and TSV.
+            </p>
+            <Button size="sm" onClick={openCreate} className="gap-2">
+              <Upload className="h-4 w-4" />
+              Upload Dataset
             </Button>
           </CardContent>
         </Card>

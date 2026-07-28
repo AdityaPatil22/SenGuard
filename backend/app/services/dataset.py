@@ -27,8 +27,8 @@ class DatasetService:
     ) -> Dataset:
         project_svc = ProjectService(self.db)
         project = await project_svc.get(project_id)
-        if user.role.name != "admin" and project.owner_id != user.id:
-            raise ForbiddenError("Only the project owner or an admin can add datasets")
+        if project.owner_id != user.id:
+            raise ForbiddenError("Only the project owner can add datasets")
 
         file_path = None
         record_count = None
@@ -67,8 +67,8 @@ class DatasetService:
         dataset = await self.get(dataset_id)
         project_svc = ProjectService(self.db)
         project = await project_svc.get(dataset.project_id)
-        if user.role.name != "admin" and project.owner_id != user.id:
-            raise ForbiddenError("Only the project owner or an admin can delete datasets")
+        if project.owner_id != user.id:
+            raise ForbiddenError("Only the project owner can delete datasets")
 
         if dataset.file_path and await self.storage.exists(dataset.file_path):
             await self.storage.delete(dataset.file_path)

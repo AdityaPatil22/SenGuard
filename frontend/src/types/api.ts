@@ -21,7 +21,6 @@ export interface User {
   github_username: string;
   email: string | null;
   avatar_url: string | null;
-  role: string;
 }
 
 export interface AuthResponse extends AuthTokens {

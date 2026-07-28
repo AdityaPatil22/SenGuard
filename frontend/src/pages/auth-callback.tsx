@@ -41,7 +41,7 @@ export function AuthCallbackPage() {
       <div className="flex min-h-screen items-center justify-center bg-background p-4">
         <div className="text-center space-y-4">
           <p className="text-destructive">{error}</p>
-          <a href="/" className="text-primary hover:underline text-sm">
+          <a href="/" className="text-sm text-primary font-medium">
             Back to home
           </a>
         </div>

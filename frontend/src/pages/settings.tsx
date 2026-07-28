@@ -2,7 +2,6 @@ import { Github, Moon, Sun } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
@@ -98,12 +97,6 @@ function AccountCard() {
               <Github className="h-3.5 w-3.5" />
               GitHub
             </span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-muted-foreground">Role</span>
-            <Badge variant="secondary" className="capitalize">
-              {user?.role}
-            </Badge>
           </div>
           <div className="flex items-center justify-between">
             <span className="text-muted-foreground">User ID</span>

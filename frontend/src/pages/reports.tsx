@@ -1,4 +1,4 @@
-import { CheckCircle, Download, XCircle } from "lucide-react";
+import { CheckCircle, Download, Eye, FileText, XCircle } from "lucide-react";
 import { useState, type FormEvent } from "react";
 
 import { Badge } from "@/components/ui/badge";
@@ -6,8 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { useReports, useApproveReport, useRejectReport } from "@/hooks/use-reports";
 import { exportReport } from "@/services/reports";
@@ -40,8 +40,62 @@ function riskColor(score: number | null) {
   return "text-destructive";
 }
 
+function riskLabel(score: number | null) {
+  if (score == null) return "Not scored";
+  if (score < 0.3) return "Low Risk";
+  if (score < 0.6) return "Medium Risk";
+  return "High Risk";
+}
+
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+}
+
+function ReportViewModal({ report, onClose }: { report: Report; onClose: () => void }) {
+  return (
+    <Dialog open onOpenChange={() => onClose()}>
+      <DialogContent className="max-w-3xl">
+        <DialogHeader>
+          <DialogTitle>{report.project_name || "Report"}</DialogTitle>
+          <DialogDescription>
+            Generated on {formatDate(report.created_at)}
+            {report.risk_score != null && ` · ${riskLabel(report.risk_score)}`}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="flex items-center gap-2 mt-3">
+          <Badge variant={STATUS_VARIANT[report.status]}>{STATUS_LABEL[report.status]}</Badge>
+          {report.risk_score != null && (
+            <span className={`font-mono text-sm font-bold ${riskColor(report.risk_score)}`}>
+              {report.risk_score.toFixed(2)}
+            </span>
+          )}
+        </div>
+
+        <Separator className="my-3" />
+
+        {report.status === "rejected" && report.rejection_comment && (
+          <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 mb-3">
+            <p className="text-sm font-medium text-destructive mb-1">Rejection Reason</p>
+            <p className="text-sm">{report.rejection_comment}</p>
+          </div>
+        )}
+
+        <div className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">
+          {report.content || "No report content available."}
+        </div>
+
+        <Separator className="my-3" />
+
+        <div className="flex justify-end">
+          <Button variant="outline" size="sm" className="gap-2" onClick={() => exportReport(report.id)}>
+            <Download className="h-3.5 w-3.5" />
+            Export JSON
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
 }
 
 export function ReportsPage() {
@@ -51,10 +105,17 @@ export function ReportsPage() {
   const [rejectDialog, setRejectDialog] = useState<Report | null>(null);
   const [rejectComment, setRejectComment] = useState("");
   const [approvingId, setApprovingId] = useState<string | null>(null);
+  const [viewReport, setViewReport] = useState<Report | null>(null);
 
-  function handleApprove(id: string) {
+  function handleApprove(id: string, e: React.MouseEvent) {
+    e.stopPropagation();
     setApprovingId(id);
     approveReport.mutate(id, { onSettled: () => setApprovingId(null) });
+  }
+
+  function openReject(report: Report, e: React.MouseEvent) {
+    e.stopPropagation();
+    setRejectDialog(report);
   }
 
   function handleReject(e: FormEvent) {
@@ -75,56 +136,93 @@ export function ReportsPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Reports</h1>
-        <p className="text-sm text-muted-foreground">Governance reports for review and approval</p>
+        <p className="text-sm text-muted-foreground">
+          Review AI governance reports and approve or reject for compliance
+        </p>
       </div>
 
       {isLoading ? (
-        <Card>
-          <CardContent className="p-6 space-y-3">
-            <Skeleton className="h-4 w-full" />
-            <Skeleton className="h-4 w-3/4" />
-            <Skeleton className="h-4 w-1/2" />
-          </CardContent>
-        </Card>
+        <div className="space-y-3">
+          {[1, 2, 3].map((i) => (
+            <Card key={i}>
+              <CardContent className="p-4">
+                <div className="flex items-center gap-4">
+                  <Skeleton className="h-10 w-10 rounded-lg" />
+                  <div className="flex-1 space-y-2">
+                    <Skeleton className="h-4 w-48" />
+                    <Skeleton className="h-3 w-32" />
+                  </div>
+                  <Skeleton className="h-6 w-20 rounded-full" />
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       ) : reports.length === 0 ? (
         <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <p className="text-sm text-muted-foreground">No reports yet</p>
-            <p className="text-xs text-muted-foreground mt-1">Reports are generated after evaluations complete</p>
+          <CardContent className="flex flex-col items-center justify-center py-16 text-center">
+            <div className="h-12 w-12 rounded-xl bg-muted flex items-center justify-center mb-4">
+              <FileText className="h-6 w-6 text-muted-foreground" />
+            </div>
+            <h3 className="text-sm font-semibold mb-1">No reports yet</h3>
+            <p className="text-sm text-muted-foreground max-w-sm">
+              Reports are automatically generated after an evaluation completes. Run an evaluation on a project to see
+              results here.
+            </p>
           </CardContent>
         </Card>
       ) : (
-        <Card>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Project</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Risk Score</TableHead>
-                <TableHead className="hidden md:table-cell">Content</TableHead>
-                <TableHead className="hidden sm:table-cell">Date</TableHead>
-                <TableHead className="w-40" />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {reports.map((r) => (
-                <TableRow key={r.id}>
-                  <TableCell className="font-medium">{r.project_name ?? r.id.slice(0, 8)}</TableCell>
-                  <TableCell>
-                    <Badge variant={STATUS_VARIANT[r.status]}>{STATUS_LABEL[r.status]}</Badge>
-                  </TableCell>
-                  <TableCell>
-                    <span className={`font-mono text-sm font-medium ${riskColor(r.risk_score)}`}>
-                      {r.risk_score != null ? r.risk_score.toFixed(2) : "—"}
-                    </span>
-                  </TableCell>
-                  <TableCell className="hidden md:table-cell text-muted-foreground max-w-xs truncate">
-                    {r.status === "rejected" && r.rejection_comment ? r.rejection_comment : (r.content ?? "No content")}
-                  </TableCell>
-                  <TableCell className="hidden sm:table-cell text-muted-foreground">
-                    {formatDate(r.created_at)}
-                  </TableCell>
-                  <TableCell>
+        <div className="space-y-2">
+          {reports.map((r) => (
+            <Card
+              key={r.id}
+              className="transition-colors hover:bg-muted/30 cursor-pointer"
+              onClick={() => setViewReport(r)}
+            >
+              <CardContent className="p-4">
+                <div className="flex items-center gap-4">
+                  <div
+                    className={`h-10 w-10 rounded-lg flex items-center justify-center shrink-0 ${
+                      r.status === "approved" || r.status === "published"
+                        ? "bg-success/10"
+                        : r.status === "rejected"
+                          ? "bg-destructive/10"
+                          : "bg-muted"
+                    }`}
+                  >
+                    <FileText
+                      className={`h-5 w-5 ${
+                        r.status === "approved" || r.status === "published"
+                          ? "text-success"
+                          : r.status === "rejected"
+                            ? "text-destructive"
+                            : "text-muted-foreground"
+                      }`}
+                    />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-medium truncate">{r.project_name || r.id.slice(0, 8)}</p>
+                      <Badge variant={STATUS_VARIANT[r.status]}>{STATUS_LABEL[r.status]}</Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {formatDate(r.created_at)}
+                      {r.status === "rejected" && r.rejection_comment && (
+                        <span className="text-destructive"> &middot; {r.rejection_comment.slice(0, 60)}</span>
+                      )}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    {r.risk_score != null && (
+                      <div className="text-right hidden sm:block">
+                        <p className={`text-lg font-bold font-mono ${riskColor(r.risk_score)}`}>
+                          {r.risk_score.toFixed(2)}
+                        </p>
+                        <p className={`text-[10px] font-medium ${riskColor(r.risk_score)}`}>
+                          {riskLabel(r.risk_score)}
+                        </p>
+                      </div>
+                    )}
                     <div className="flex gap-1">
                       {r.status === "in_review" && (
                         <>
@@ -133,33 +231,46 @@ export function ReportsPage() {
                             size="sm"
                             className="gap-1 text-success"
                             disabled={approvingId === r.id}
-                            onClick={() => handleApprove(r.id)}
+                            onClick={(ev) => handleApprove(r.id, ev)}
                           >
                             <CheckCircle className="h-3.5 w-3.5" />
-                            {approvingId === r.id ? "..." : "Approve"}
+                            <span className="hidden sm:inline">
+                              {approvingId === r.id ? "..." : "Approve"}
+                            </span>
                           </Button>
                           <Button
                             variant="ghost"
                             size="sm"
                             className="gap-1 text-destructive"
-                            onClick={() => setRejectDialog(r)}
+                            onClick={(ev) => openReject(r, ev)}
                           >
                             <XCircle className="h-3.5 w-3.5" />
-                            Reject
+                            <span className="hidden sm:inline">Reject</span>
                           </Button>
                         </>
                       )}
-                      <Button variant="ghost" size="sm" className="gap-1" onClick={() => exportReport(r.id)}>
-                        <Download className="h-3.5 w-3.5" />
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="gap-1"
+                        onClick={(ev) => {
+                          ev.stopPropagation();
+                          setViewReport(r);
+                        }}
+                      >
+                        <Eye className="h-3.5 w-3.5" />
+                        <span className="hidden sm:inline">View</span>
                       </Button>
                     </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </Card>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       )}
+
+      {viewReport && <ReportViewModal report={viewReport} onClose={() => setViewReport(null)} />}
 
       <Dialog
         open={!!rejectDialog}
@@ -170,16 +281,18 @@ export function ReportsPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Reject Report</DialogTitle>
-            <DialogDescription>Provide a reason for rejecting this report.</DialogDescription>
+            <DialogDescription>
+              Provide a reason for rejection. The report author will see this feedback.
+            </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleReject} className="space-y-4 mt-4">
             <div className="space-y-2">
-              <Label htmlFor="reject-comment">Comment</Label>
+              <Label htmlFor="reject-comment">Reason for rejection</Label>
               <Textarea
                 id="reject-comment"
                 value={rejectComment}
                 onChange={(e) => setRejectComment(e.target.value)}
-                placeholder="Reason for rejection..."
+                placeholder="What needs to change before this report can be approved?"
                 required
                 rows={3}
               />
@@ -189,7 +302,7 @@ export function ReportsPage() {
                 Cancel
               </Button>
               <Button type="submit" variant="destructive" disabled={rejectReport.isPending}>
-                {rejectReport.isPending ? "Rejecting..." : "Reject"}
+                {rejectReport.isPending ? "Rejecting..." : "Reject Report"}
               </Button>
             </div>
           </form>

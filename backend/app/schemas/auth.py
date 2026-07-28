@@ -20,4 +20,3 @@ class UserResponse(BaseModel):
     github_username: str
     email: str | None
     avatar_url: str | None
-    role: str
