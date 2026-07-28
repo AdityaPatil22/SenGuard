@@ -48,10 +48,16 @@ export interface Evaluation {
   risk_score: number | null;
   summary: string | null;
   model_name: string | null;
+  node_results: Record<string, unknown> | null;
+  error_message: string | null;
   project_id: string;
   created_at: string;
   updated_at: string;
-  project?: Project;
+}
+
+export interface CreateEvaluationRequest {
+  project_id: string;
+  model_name?: string;
 }
 
 export interface Report {
