@@ -18,25 +18,31 @@ class StorageBackend(ABC):
 
 class LocalStorage(StorageBackend):
     def __init__(self, base_path: str = "./storage"):
-        self.base_path = Path(base_path)
+        self.base_path = Path(base_path).resolve()
         self.base_path.mkdir(parents=True, exist_ok=True)
 
+    def _safe_path(self, path: str) -> Path:
+        resolved = (self.base_path / path).resolve()
+        if not resolved.is_relative_to(self.base_path):
+            raise ValueError("Path traversal detected")
+        return resolved
+
     async def save(self, path: str, data: bytes) -> str:
-        full_path = self.base_path / path
+        full_path = self._safe_path(path)
         full_path.parent.mkdir(parents=True, exist_ok=True)
         full_path.write_bytes(data)
         return str(full_path)
 
     async def load(self, path: str) -> bytes:
-        return (self.base_path / path).read_bytes()
+        return self._safe_path(path).read_bytes()
 
     async def delete(self, path: str) -> None:
-        target = self.base_path / path
+        target = self._safe_path(path)
         if target.exists():
             target.unlink()
 
     async def exists(self, path: str) -> bool:
-        return (self.base_path / path).exists()
+        return self._safe_path(path).exists()
 
 
 def get_storage(backend: str = "local", **kwargs) -> StorageBackend:

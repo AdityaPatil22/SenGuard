@@ -1,4 +1,5 @@
 import {
+  Database,
   FileText,
   FlaskConical,
   FolderKanban,
@@ -28,6 +29,7 @@ import type { User as UserType } from "@/types/api";
 const NAV_ITEMS = [
   { label: "Dashboard", to: "/", icon: LayoutDashboard },
   { label: "Projects", to: "/projects", icon: FolderKanban },
+  { label: "Datasets", to: "/datasets", icon: Database },
   { label: "Evaluations", to: "/evaluations", icon: FlaskConical },
   { label: "Reports", to: "/reports", icon: FileText },
   { label: "Settings", to: "/settings", icon: Settings },

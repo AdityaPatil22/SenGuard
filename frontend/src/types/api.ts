@@ -85,6 +85,12 @@ export interface Dataset {
   updated_at: string;
 }
 
+export interface CreateDatasetRequest {
+  name: string;
+  project_id: string;
+  description?: string;
+}
+
 export interface CreateProjectRequest {
   name: string;
   description?: string;
