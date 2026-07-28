@@ -1,6 +1,8 @@
 from abc import ABC, abstractmethod
 from pathlib import Path
 
+from app.core.exceptions import BadRequestError
+
 
 class StorageBackend(ABC):
     @abstractmethod
@@ -22,10 +24,10 @@ class LocalStorage(StorageBackend):
         self.base_path.mkdir(parents=True, exist_ok=True)
 
     def _safe_path(self, path: str) -> Path:
-        resolved = (self.base_path / path).resolve()
-        if not resolved.is_relative_to(self.base_path):
-            raise ValueError("Path traversal detected")
-        return resolved
+        full_path = (self.base_path / path).resolve()
+        if not full_path.is_relative_to(self.base_path):
+            raise BadRequestError("Invalid storage path")
+        return full_path
 
     async def save(self, path: str, data: bytes) -> str:
         full_path = self._safe_path(path)

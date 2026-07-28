@@ -3,6 +3,8 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import ORJSONResponse
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 from sqlalchemy import select
 
 from app.api.v1 import router as v1_router
@@ -12,6 +14,7 @@ from app.core.logging import setup_logging
 from app.db.base import Base
 from app.db.session import async_session, engine
 from app.middleware.error_handler import app_exception_handler, unhandled_exception_handler
+from app.middleware.rate_limit import limiter
 from app.models.user import Role, RoleEnum
 
 settings = get_settings()
@@ -43,12 +46,14 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=[o.strip() for o in settings.cors_origins.split(",")],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 app.add_exception_handler(AppError, app_exception_handler)
 app.add_exception_handler(Exception, unhandled_exception_handler)
 

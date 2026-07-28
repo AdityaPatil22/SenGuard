@@ -3,7 +3,7 @@ import uuid
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import BadRequestError, NotFoundError
-from app.langgraph.graph import evaluation_workflow
+from app.langgraph.graph import get_evaluation_workflow
 from app.models.evaluation import Evaluation, EvaluationStatus
 from app.models.project import Project
 from app.repositories.evaluation import EvaluationRepository
@@ -57,7 +57,7 @@ class EvaluationService:
 
         try:
             # ponytail: runs synchronously since LangGraph nodes are stubs; swap to background task when nodes do real work
-            result = await evaluation_workflow.ainvoke({
+            result = await get_evaluation_workflow().ainvoke({
                 "project_id": str(evaluation.project_id),
                 "model_name": evaluation.model_name,
             })
