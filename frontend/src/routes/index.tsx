@@ -1,22 +1,17 @@
 import { createBrowserRouter } from "react-router-dom";
 
 import { AppLayout } from "@/layouts/app-layout";
+import { AuthCallbackPage } from "@/pages/auth-callback";
 import { DashboardPage } from "@/pages/dashboard";
 import { EvaluationsPage } from "@/pages/evaluations";
-import { LoginPage } from "@/pages/login";
-import { RegisterPage } from "@/pages/register";
 import { ProjectsPage } from "@/pages/projects";
 import { ReportsPage } from "@/pages/reports";
 import { SettingsPage } from "@/pages/settings";
 
 export const router = createBrowserRouter([
   {
-    path: "/login",
-    element: <LoginPage />,
-  },
-  {
-    path: "/register",
-    element: <RegisterPage />,
+    path: "/auth/callback",
+    element: <AuthCallbackPage />,
   },
   {
     element: <AppLayout />,

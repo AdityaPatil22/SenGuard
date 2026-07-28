@@ -2,6 +2,7 @@ import {
   FileText,
   FlaskConical,
   FolderKanban,
+  Github,
   LayoutDashboard,
   LogOut,
   Menu,
@@ -9,15 +10,20 @@ import {
   Settings,
   Shield,
   Sun,
+  User,
 } from "lucide-react";
-import { useState } from "react";
-import { Link, NavLink, Navigate, Outlet } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link, NavLink, Outlet } from "react-router-dom";
 
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { useAuthStore } from "@/store/auth";
 import { useThemeStore } from "@/store/theme";
+import api from "@/services/api";
+import type { ApiResponse } from "@/types/api";
+import type { User as UserType } from "@/types/api";
 
 const NAV_ITEMS = [
   { label: "Dashboard", to: "/", icon: LayoutDashboard },
@@ -52,12 +58,103 @@ function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
   );
 }
 
-export function AppLayout() {
+function ProfileButton() {
   const { isAuthenticated, logout } = useAuthStore();
+  const [user, setUser] = useState<UserType | null>(null);
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setUser(null);
+      return;
+    }
+    api
+      .get<ApiResponse<UserType>>("/auth/me")
+      .then(({ data }) => {
+        if (data.success && data.data) setUser(data.data);
+      })
+      .catch(() => setUser(null));
+  }, [isAuthenticated]);
+
+  if (!isAuthenticated) {
+    async function handleLogin() {
+      setLoading(true);
+      try {
+        const { data } = await api.get<ApiResponse<{ url: string }>>("/auth/github");
+        if (data.success && data.data?.url) {
+          window.location.href = data.data.url;
+        }
+      } catch {
+        setLoading(false);
+      }
+    }
+
+    return (
+      <Button variant="ghost" size="sm" onClick={handleLogin} disabled={loading} className="gap-2">
+        <Github className="h-4 w-4" />
+        <span className="hidden sm:inline">{loading ? "Connecting..." : "Sign in"}</span>
+      </Button>
+    );
+  }
+
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setOpen(!open)}
+        className="flex items-center gap-2 rounded-lg p-1 hover:bg-accent transition-colors"
+      >
+        <Avatar className="h-7 w-7">
+          {user?.avatar_url ? (
+            <img src={user.avatar_url} alt={user.github_username} className="h-full w-full rounded-full object-cover" />
+          ) : (
+            <AvatarFallback>
+              <User className="h-3.5 w-3.5" />
+            </AvatarFallback>
+          )}
+        </Avatar>
+        {user && (
+          <span className="hidden sm:inline text-sm font-medium text-foreground">
+            {user.github_username}
+          </span>
+        )}
+      </button>
+
+      {open && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+          <div className="absolute right-0 top-full z-50 mt-1 w-48 rounded-lg border bg-popover p-1 shadow-md">
+            {user && (
+              <>
+                <div className="px-3 py-2 text-sm">
+                  <p className="font-medium">{user.github_username}</p>
+                  {user.email && (
+                    <p className="text-muted-foreground text-xs truncate">{user.email}</p>
+                  )}
+                </div>
+                <Separator />
+              </>
+            )}
+            <button
+              onClick={() => {
+                setOpen(false);
+                logout();
+              }}
+              className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-destructive hover:bg-accent transition-colors"
+            >
+              <LogOut className="h-3.5 w-3.5" />
+              Sign out
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+export function AppLayout() {
   const { theme, toggle } = useThemeStore();
   const [mobileOpen, setMobileOpen] = useState(false);
-
-  if (!isAuthenticated) return <Navigate to="/login" replace />;
 
   return (
     <div className="flex h-screen">
@@ -95,10 +192,7 @@ export function AppLayout() {
           <Button variant="ghost" size="icon" onClick={toggle}>
             {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
           </Button>
-          <Button variant="ghost" size="sm" onClick={logout} className="gap-2 text-muted-foreground">
-            <LogOut className="h-4 w-4" />
-            <span className="hidden sm:inline">Logout</span>
-          </Button>
+          <ProfileButton />
         </header>
         <main className="flex-1 overflow-auto p-4 md:p-6">
           <Outlet />

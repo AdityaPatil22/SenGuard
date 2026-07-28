@@ -1,9 +1,8 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel
 
 
-class LoginRequest(BaseModel):
-    email: EmailStr
-    password: str
+class GitHubCallbackRequest(BaseModel):
+    code: str
 
 
 class TokenResponse(BaseModel):
@@ -16,7 +15,9 @@ class RefreshRequest(BaseModel):
     refresh_token: str
 
 
-class RegisterRequest(BaseModel):
-    email: EmailStr
-    password: str
-    full_name: str
+class UserResponse(BaseModel):
+    id: str
+    github_username: str
+    email: str | None
+    avatar_url: str | None
+    role: str

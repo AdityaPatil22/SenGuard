@@ -26,6 +26,9 @@ class Settings(BaseSettings):
     gemini_api_key: str = ""
     gemini_model: str = "gemini-2.5-flash"
 
+    github_client_id: str = ""
+    github_client_secret: str = ""
+
     storage_backend: str = "local"
     storage_local_path: str = "./storage"
 

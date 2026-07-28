@@ -18,10 +18,14 @@ export interface AuthTokens {
 
 export interface User {
   id: string;
-  email: string;
-  full_name: string;
+  github_username: string;
+  email: string | null;
+  avatar_url: string | null;
   role: string;
-  is_active: boolean;
+}
+
+export interface AuthResponse extends AuthTokens {
+  user: User;
 }
 
 export type ProjectStatus = "draft" | "submitted" | "evaluating" | "evaluated" | "approved" | "rejected";
