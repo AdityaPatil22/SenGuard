@@ -25,9 +25,12 @@ const STATUS_VARIANT: Record<ReportStatus, "default" | "secondary" | "destructiv
 
 const STATUS_LABEL: Record<ReportStatus, string> = {
   draft: "Draft",
+  pending_review: "Pending Review",
   in_review: "In Review",
   approved: "Approved",
   rejected: "Rejected",
+  published: "Published",
+  archived: "Archived",
 };
 
 function riskColor(score: number | null) {

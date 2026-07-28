@@ -4,6 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.auth.dependencies import get_current_user
 from app.core.response import success
 from app.db.session import get_db
+from app.middleware.rate_limit import limiter
 from app.models.user import User
 from app.schemas.auth import GitHubCallbackRequest, RefreshRequest
 from app.services.auth import AuthService

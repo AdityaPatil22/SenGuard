@@ -3,11 +3,12 @@ from httpx import ASGITransport, AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
+from app.auth.jwt import create_access_token, create_refresh_token
 from app.config import get_settings
 from app.db.base import Base
 from app.db.session import get_db
 from app.main import app
-from app.models.user import Role, RoleEnum
+from app.models.user import Role, RoleEnum, User
 
 settings = get_settings()
 
@@ -48,9 +49,13 @@ async def client(db_session):
 
 
 @pytest.fixture
-async def auth_tokens(client):
-    response = await client.post(
-        "/api/v1/auth/register",
-        json={"email": "test@example.com", "password": "TestPass1", "full_name": "Test User"},
-    )
-    return response.json()["data"]
+async def auth_tokens(db_session):
+    role = (await db_session.execute(select(Role).where(Role.name == RoleEnum.DEVELOPER))).scalar_one()
+    user = User(github_id=12345, github_username="testuser", email="test@example.com", role_id=role.id)
+    db_session.add(user)
+    await db_session.commit()
+    await db_session.refresh(user)
+    return {
+        "access_token": create_access_token(str(user.id), {"role": role.name}),
+        "refresh_token": create_refresh_token(str(user.id)),
+    }
