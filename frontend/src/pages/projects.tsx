@@ -1,4 +1,4 @@
-import { Plus } from "lucide-react";
+import { Pencil, Plus, Trash2 } from "lucide-react";
 import { useState, type FormEvent } from "react";
 
 import { Badge } from "@/components/ui/badge";
@@ -10,8 +10,8 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
-import { useProjects, useCreateProject } from "@/hooks/use-projects";
-import type { ProjectStatus } from "@/types/api";
+import { useProjects, useCreateProject, useUpdateProject, useDeleteProject } from "@/hooks/use-projects";
+import type { Project, ProjectStatus } from "@/types/api";
 
 const STATUS_VARIANT: Record<ProjectStatus, "default" | "secondary" | "destructive" | "success" | "warning"> = {
   draft: "secondary",
@@ -29,22 +29,47 @@ function formatDate(iso: string) {
 export function ProjectsPage() {
   const { data: projects = [], isLoading } = useProjects();
   const createProject = useCreateProject();
-  const [dialogOpen, setDialogOpen] = useState(false);
+  const updateProjectMut = useUpdateProject();
+  const deleteProjectMut = useDeleteProject();
+
+  const [createOpen, setCreateOpen] = useState(false);
+  const [editProject, setEditProject] = useState<Project | null>(null);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  function openCreate() {
+    setName("");
+    setDescription("");
+    setCreateOpen(true);
+  }
+
+  function openEdit(p: Project) {
+    setName(p.name);
+    setDescription(p.description ?? "");
+    setEditProject(p);
+  }
 
   function handleCreate(e: FormEvent) {
     e.preventDefault();
     createProject.mutate(
       { name, description: description || undefined },
-      {
-        onSuccess: () => {
-          setDialogOpen(false);
-          setName("");
-          setDescription("");
-        },
-      },
+      { onSuccess: () => setCreateOpen(false) },
     );
+  }
+
+  function handleUpdate(e: FormEvent) {
+    e.preventDefault();
+    if (!editProject) return;
+    updateProjectMut.mutate(
+      { id: editProject.id, body: { name, description: description || undefined } },
+      { onSuccess: () => setEditProject(null) },
+    );
+  }
+
+  function handleDelete(id: string) {
+    setDeletingId(id);
+    deleteProjectMut.mutate(id, { onSettled: () => setDeletingId(null) });
   }
 
   return (
@@ -54,7 +79,7 @@ export function ProjectsPage() {
           <h1 className="text-2xl font-semibold tracking-tight">Projects</h1>
           <p className="text-sm text-muted-foreground">AI projects submitted for governance evaluation</p>
         </div>
-        <Button size="sm" className="gap-2" onClick={() => setDialogOpen(true)}>
+        <Button size="sm" className="gap-2" onClick={openCreate}>
           <Plus className="h-4 w-4" />
           New Project
         </Button>
@@ -72,7 +97,7 @@ export function ProjectsPage() {
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
             <p className="text-sm text-muted-foreground">No projects yet</p>
-            <Button variant="link" size="sm" onClick={() => setDialogOpen(true)}>
+            <Button variant="link" size="sm" onClick={openCreate}>
               Create your first project
             </Button>
           </CardContent>
@@ -86,6 +111,7 @@ export function ProjectsPage() {
                 <TableHead>Status</TableHead>
                 <TableHead className="hidden md:table-cell">Description</TableHead>
                 <TableHead className="hidden sm:table-cell">Created</TableHead>
+                <TableHead className="w-24" />
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -101,6 +127,22 @@ export function ProjectsPage() {
                   <TableCell className="hidden sm:table-cell text-muted-foreground">
                     {formatDate(p.created_at)}
                   </TableCell>
+                  <TableCell>
+                    <div className="flex gap-1">
+                      <Button variant="ghost" size="sm" onClick={() => openEdit(p)}>
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-destructive"
+                        disabled={deletingId === p.id}
+                        onClick={() => handleDelete(p.id)}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -108,7 +150,8 @@ export function ProjectsPage() {
         </Card>
       )}
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+      {/* Create Dialog */}
+      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>New Project</DialogTitle>
@@ -136,11 +179,51 @@ export function ProjectsPage() {
               />
             </div>
             <div className="flex justify-end gap-2">
-              <Button type="button" variant="ghost" onClick={() => setDialogOpen(false)}>
+              <Button type="button" variant="ghost" onClick={() => setCreateOpen(false)}>
                 Cancel
               </Button>
               <Button type="submit" disabled={createProject.isPending}>
                 {createProject.isPending ? "Creating..." : "Create"}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Dialog */}
+      <Dialog open={!!editProject} onOpenChange={(open) => { if (!open) setEditProject(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Project</DialogTitle>
+            <DialogDescription>Update project details.</DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleUpdate} className="space-y-4 mt-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-name">Name</Label>
+              <Input
+                id="edit-name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="My AI Project"
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-desc">Description</Label>
+              <Textarea
+                id="edit-desc"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="What does this AI application do?"
+                rows={3}
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="ghost" onClick={() => setEditProject(null)}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={updateProjectMut.isPending}>
+                {updateProjectMut.isPending ? "Saving..." : "Save"}
               </Button>
             </div>
           </form>
