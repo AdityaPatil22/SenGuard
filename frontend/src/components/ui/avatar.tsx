@@ -2,10 +2,7 @@ import { cn } from "@/lib/utils";
 
 function Avatar({ className, children, ...props }: React.HTMLAttributes<HTMLDivElement>) {
   return (
-    <div
-      className={cn("relative flex h-8 w-8 shrink-0 overflow-hidden rounded-full", className)}
-      {...props}
-    >
+    <div className={cn("relative flex h-8 w-8 shrink-0 overflow-hidden rounded-full", className)} {...props}>
       {children}
     </div>
   );
@@ -14,7 +11,10 @@ function Avatar({ className, children, ...props }: React.HTMLAttributes<HTMLDivE
 function AvatarFallback({ className, children, ...props }: React.HTMLAttributes<HTMLDivElement>) {
   return (
     <div
-      className={cn("flex h-full w-full items-center justify-center rounded-full bg-primary/10 text-xs font-medium text-primary", className)}
+      className={cn(
+        "flex h-full w-full items-center justify-center rounded-full bg-primary/10 text-xs font-medium text-primary",
+        className,
+      )}
       {...props}
     >
       {children}

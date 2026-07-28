@@ -43,9 +43,7 @@ class AuthService:
             user.avatar_url = gh_user.get("avatar_url")
             await self.db.flush()
         else:
-            role = (
-                await self.db.execute(select(Role).where(Role.name == RoleEnum.DEVELOPER))
-            ).scalar_one_or_none()
+            role = (await self.db.execute(select(Role).where(Role.name == RoleEnum.DEVELOPER))).scalar_one_or_none()
             if not role:
                 raise BadRequestError("Default role not configured")
             user = User(

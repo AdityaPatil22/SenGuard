@@ -115,11 +115,7 @@ function ProfileButton() {
             </AvatarFallback>
           )}
         </Avatar>
-        {user && (
-          <span className="hidden sm:inline text-sm font-medium text-foreground">
-            {user.github_username}
-          </span>
-        )}
+        {user && <span className="hidden sm:inline text-sm font-medium text-foreground">{user.github_username}</span>}
       </button>
 
       {open && (
@@ -130,9 +126,7 @@ function ProfileButton() {
               <>
                 <div className="px-3 py-2 text-sm">
                   <p className="font-medium">{user.github_username}</p>
-                  {user.email && (
-                    <p className="text-muted-foreground text-xs truncate">{user.email}</p>
-                  )}
+                  {user.email && <p className="text-muted-foreground text-xs truncate">{user.email}</p>}
                 </div>
                 <Separator />
               </>

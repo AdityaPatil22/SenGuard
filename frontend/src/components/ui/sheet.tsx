@@ -7,7 +7,15 @@ const SheetContext = createContext<{ open: boolean; onOpenChange: (v: boolean) =
   onOpenChange: () => {},
 });
 
-function Sheet({ open, onOpenChange, children }: { open: boolean; onOpenChange: (v: boolean) => void; children: ReactNode }) {
+function Sheet({
+  open,
+  onOpenChange,
+  children,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  children: ReactNode;
+}) {
   return <SheetContext.Provider value={{ open, onOpenChange }}>{children}</SheetContext.Provider>;
 }
 

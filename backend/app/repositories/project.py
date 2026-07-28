@@ -16,6 +16,7 @@ class ProjectRepository(BaseRepository[Project]):
             select(Project)
             .where(Project.owner_id == owner_id)
             .order_by(Project.created_at.desc())
-            .offset(skip).limit(limit)
+            .offset(skip)
+            .limit(limit)
         )
         return list(result.scalars().all())

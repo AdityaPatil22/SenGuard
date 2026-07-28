@@ -16,6 +16,7 @@ class DatasetRepository(BaseRepository[Dataset]):
             select(Dataset)
             .where(Dataset.project_id == project_id)
             .order_by(Dataset.created_at.desc())
-            .offset(skip).limit(limit)
+            .offset(skip)
+            .limit(limit)
         )
         return list(result.scalars().all())

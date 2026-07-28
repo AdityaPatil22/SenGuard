@@ -1,3 +1,5 @@
+import uuid as _uuid
+
 import pytest
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import select
@@ -16,7 +18,7 @@ test_engine = create_async_engine(settings.database_url, echo=False)
 TestSessionLocal = async_sessionmaker(test_engine, class_=AsyncSession, expire_on_commit=False)
 
 
-@pytest.fixture(autouse=True)
+@pytest.fixture(scope="session", autouse=True)
 async def setup_db():
     async with test_engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
@@ -51,7 +53,8 @@ async def client(db_session):
 @pytest.fixture
 async def auth_tokens(db_session):
     role = (await db_session.execute(select(Role).where(Role.name == RoleEnum.DEVELOPER))).scalar_one()
-    user = User(github_id=12345, github_username="testuser", email="test@example.com", role_id=role.id)
+    gid = _uuid.uuid4().int >> 65
+    user = User(github_id=gid, github_username="testuser", email=f"test-{gid}@example.com", role_id=role.id)
     db_session.add(user)
     await db_session.commit()
     await db_session.refresh(user)

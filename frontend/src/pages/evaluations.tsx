@@ -109,9 +109,7 @@ export function EvaluationsPage() {
                 const status = e.status.toLowerCase() as EvaluationStatus;
                 return (
                   <TableRow key={e.id}>
-                    <TableCell className="font-medium font-mono text-xs">
-                      {e.model_name ?? "—"}
-                    </TableCell>
+                    <TableCell className="font-medium font-mono text-xs">{e.model_name ?? "—"}</TableCell>
                     <TableCell>
                       <Badge variant={STATUS_VARIANT[status] ?? "secondary"}>{status}</Badge>
                     </TableCell>
@@ -121,9 +119,7 @@ export function EvaluationsPage() {
                       </span>
                     </TableCell>
                     <TableCell className="hidden md:table-cell text-muted-foreground max-w-xs truncate">
-                      {status === "failed" && e.error_message
-                        ? e.error_message
-                        : e.summary ?? "—"}
+                      {status === "failed" && e.error_message ? e.error_message : (e.summary ?? "—")}
                     </TableCell>
                     <TableCell className="hidden sm:table-cell text-muted-foreground">
                       {formatDate(e.created_at)}
@@ -159,15 +155,14 @@ export function EvaluationsPage() {
           <form onSubmit={handleCreate} className="space-y-4 mt-4">
             <div className="space-y-2">
               <Label htmlFor="eval-project">Project</Label>
-              <Select
-                id="eval-project"
-                value={projectId}
-                onChange={(e) => setProjectId(e.target.value)}
-                required
-              >
-                <option value="" disabled>Select a project</option>
+              <Select id="eval-project" value={projectId} onChange={(e) => setProjectId(e.target.value)} required>
+                <option value="" disabled>
+                  Select a project
+                </option>
                 {projects.map((p) => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
                 ))}
               </Select>
             </div>

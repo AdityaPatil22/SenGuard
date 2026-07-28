@@ -40,21 +40,27 @@ class ReportService:
     async def approve(self, report_id: uuid.UUID, reviewer_id: uuid.UUID) -> Report:
         report = await self.get(report_id)
         self._check_transition(report, ReportStatus.APPROVED)
-        await self.repo.update(report, {
-            "status": ReportStatus.APPROVED,
-            "reviewer_id": reviewer_id,
-        })
+        await self.repo.update(
+            report,
+            {
+                "status": ReportStatus.APPROVED,
+                "reviewer_id": reviewer_id,
+            },
+        )
         await self._audit(reviewer_id, report_id, "approve")
         return report
 
     async def reject(self, report_id: uuid.UUID, reviewer_id: uuid.UUID, comment: str) -> Report:
         report = await self.get(report_id)
         self._check_transition(report, ReportStatus.REJECTED)
-        await self.repo.update(report, {
-            "status": ReportStatus.REJECTED,
-            "reviewer_id": reviewer_id,
-            "rejection_comment": comment,
-        })
+        await self.repo.update(
+            report,
+            {
+                "status": ReportStatus.REJECTED,
+                "reviewer_id": reviewer_id,
+                "rejection_comment": comment,
+            },
+        )
         await self._audit(reviewer_id, report_id, "reject", comment)
         return report
 

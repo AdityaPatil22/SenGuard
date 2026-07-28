@@ -102,13 +102,13 @@ export function DatasetsPage() {
               {datasets.map((d) => (
                 <TableRow key={d.id}>
                   <TableCell className="font-medium">{d.name}</TableCell>
-                  <TableCell className="text-muted-foreground">{projectMap[d.project_id] ?? d.project_id.slice(0, 8)}</TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {projectMap[d.project_id] ?? d.project_id.slice(0, 8)}
+                  </TableCell>
                   <TableCell className="hidden md:table-cell text-muted-foreground max-w-xs truncate">
                     {d.description ?? "—"}
                   </TableCell>
-                  <TableCell className="hidden sm:table-cell text-muted-foreground">
-                    {d.record_count ?? "—"}
-                  </TableCell>
+                  <TableCell className="hidden sm:table-cell text-muted-foreground">{d.record_count ?? "—"}</TableCell>
                   <TableCell className="hidden sm:table-cell text-muted-foreground">
                     {formatDate(d.created_at)}
                   </TableCell>
@@ -150,9 +150,13 @@ export function DatasetsPage() {
             <div className="space-y-2">
               <Label htmlFor="ds-project">Project</Label>
               <Select id="ds-project" value={projectId} onChange={(e) => setProjectId(e.target.value)} required>
-                <option value="" disabled>Select a project</option>
+                <option value="" disabled>
+                  Select a project
+                </option>
                 {projects.map((p) => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
                 ))}
               </Select>
             </div>

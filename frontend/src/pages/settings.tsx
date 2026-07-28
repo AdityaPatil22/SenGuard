@@ -74,11 +74,13 @@ function AccountCard() {
         <div className="flex items-center gap-4">
           <Avatar className="h-12 w-12">
             {user?.avatar_url ? (
-              <img src={user.avatar_url} alt={user.github_username} className="h-full w-full rounded-full object-cover" />
+              <img
+                src={user.avatar_url}
+                alt={user.github_username}
+                className="h-full w-full rounded-full object-cover"
+              />
             ) : (
-              <AvatarFallback className="text-base">
-                {user?.github_username?.charAt(0).toUpperCase()}
-              </AvatarFallback>
+              <AvatarFallback className="text-base">{user?.github_username?.charAt(0).toUpperCase()}</AvatarFallback>
             )}
           </Avatar>
           <div>
@@ -99,7 +101,9 @@ function AccountCard() {
           </div>
           <div className="flex items-center justify-between">
             <span className="text-muted-foreground">Role</span>
-            <Badge variant="secondary" className="capitalize">{user?.role}</Badge>
+            <Badge variant="secondary" className="capitalize">
+              {user?.role}
+            </Badge>
           </div>
           <div className="flex items-center justify-between">
             <span className="text-muted-foreground">User ID</span>

@@ -27,7 +27,8 @@ class ReportRepository(BaseRepository[Report]):
             .options(joinedload(Report.evaluation).joinedload(Evaluation.project))
             .where(Report.status == status)
             .order_by(Report.created_at.desc())
-            .offset(skip).limit(limit)
+            .offset(skip)
+            .limit(limit)
         )
         return list(result.unique().scalars().all())
 
@@ -38,7 +39,8 @@ class ReportRepository(BaseRepository[Report]):
             .join(Evaluation)
             .where(Evaluation.project_id == project_id)
             .order_by(Report.created_at.desc())
-            .offset(skip).limit(limit)
+            .offset(skip)
+            .limit(limit)
         )
         return list(result.unique().scalars().all())
 
@@ -47,6 +49,7 @@ class ReportRepository(BaseRepository[Report]):
             select(Report)
             .options(joinedload(Report.evaluation).joinedload(Evaluation.project))
             .order_by(Report.created_at.desc())
-            .offset(skip).limit(limit)
+            .offset(skip)
+            .limit(limit)
         )
         return list(result.unique().scalars().all())

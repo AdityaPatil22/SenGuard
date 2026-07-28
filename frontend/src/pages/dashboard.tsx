@@ -7,8 +7,6 @@ import { useEvaluations } from "@/hooks/use-evaluations";
 import { useProjects } from "@/hooks/use-projects";
 import { useReports } from "@/hooks/use-reports";
 
-
-
 const STATUS_VARIANT: Record<string, "default" | "secondary" | "destructive" | "success" | "warning"> = {
   draft: "secondary",
   submitted: "default",

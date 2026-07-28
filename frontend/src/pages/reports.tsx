@@ -109,9 +109,7 @@ export function ReportsPage() {
             <TableBody>
               {reports.map((r) => (
                 <TableRow key={r.id}>
-                  <TableCell className="font-medium">
-                    {r.project_name ?? r.id.slice(0, 8)}
-                  </TableCell>
+                  <TableCell className="font-medium">{r.project_name ?? r.id.slice(0, 8)}</TableCell>
                   <TableCell>
                     <Badge variant={STATUS_VARIANT[r.status]}>{STATUS_LABEL[r.status]}</Badge>
                   </TableCell>
@@ -121,9 +119,7 @@ export function ReportsPage() {
                     </span>
                   </TableCell>
                   <TableCell className="hidden md:table-cell text-muted-foreground max-w-xs truncate">
-                    {r.status === "rejected" && r.rejection_comment
-                      ? r.rejection_comment
-                      : r.content ?? "No content"}
+                    {r.status === "rejected" && r.rejection_comment ? r.rejection_comment : (r.content ?? "No content")}
                   </TableCell>
                   <TableCell className="hidden sm:table-cell text-muted-foreground">
                     {formatDate(r.created_at)}
@@ -153,12 +149,7 @@ export function ReportsPage() {
                           </Button>
                         </>
                       )}
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="gap-1"
-                        onClick={() => exportReport(r.id)}
-                      >
+                      <Button variant="ghost" size="sm" className="gap-1" onClick={() => exportReport(r.id)}>
                         <Download className="h-3.5 w-3.5" />
                       </Button>
                     </div>
@@ -170,13 +161,16 @@ export function ReportsPage() {
         </Card>
       )}
 
-      <Dialog open={!!rejectDialog} onOpenChange={(open) => { if (!open) setRejectDialog(null); }}>
+      <Dialog
+        open={!!rejectDialog}
+        onOpenChange={(open) => {
+          if (!open) setRejectDialog(null);
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Reject Report</DialogTitle>
-            <DialogDescription>
-              Provide a reason for rejecting this report.
-            </DialogDescription>
+            <DialogDescription>Provide a reason for rejecting this report.</DialogDescription>
           </DialogHeader>
           <form onSubmit={handleReject} className="space-y-4 mt-4">
             <div className="space-y-2">

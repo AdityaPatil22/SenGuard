@@ -56,30 +56,38 @@ class EvaluationService:
         await self.repo.update(evaluation, {"status": EvaluationStatus.RUNNING})
 
         try:
-            # ponytail: runs synchronously since LangGraph nodes are stubs; swap to background task when nodes do real work
-            result = await get_evaluation_workflow().ainvoke({
-                "project_id": str(evaluation.project_id),
-                "model_name": evaluation.model_name,
-            })
+            # ponytail: sync since LangGraph nodes are stubs; swap to background task when real
+            result = await get_evaluation_workflow().ainvoke(
+                {
+                    "project_id": str(evaluation.project_id),
+                    "model_name": evaluation.model_name,
+                }
+            )
 
             summary = result.get("report") or None
-            await self.repo.update(evaluation, {
-                "status": EvaluationStatus.COMPLETED,
-                "risk_score": result.get("risk_score"),
-                "summary": summary,
-                "node_results": {
-                    "prompt_security": result.get("prompt_security_result"),
-                    "dataset_validation": result.get("dataset_validation_result"),
-                    "model_evaluation": result.get("model_evaluation_result"),
+            await self.repo.update(
+                evaluation,
+                {
+                    "status": EvaluationStatus.COMPLETED,
+                    "risk_score": result.get("risk_score"),
+                    "summary": summary,
+                    "node_results": {
+                        "prompt_security": result.get("prompt_security_result"),
+                        "dataset_validation": result.get("dataset_validation_result"),
+                        "model_evaluation": result.get("model_evaluation_result"),
+                    },
                 },
-            })
+            )
 
             report_svc = ReportService(self.db)
             await report_svc.create_from_evaluation(evaluation.id, summary)
         except Exception as e:
-            await self.repo.update(evaluation, {
-                "status": EvaluationStatus.FAILED,
-                "error_message": str(e),
-            })
+            await self.repo.update(
+                evaluation,
+                {
+                    "status": EvaluationStatus.FAILED,
+                    "error_message": str(e),
+                },
+            )
 
         return evaluation

@@ -52,10 +52,7 @@ export function ProjectsPage() {
 
   function handleCreate(e: FormEvent) {
     e.preventDefault();
-    createProject.mutate(
-      { name, description: description || undefined },
-      { onSuccess: () => setCreateOpen(false) },
-    );
+    createProject.mutate({ name, description: description || undefined }, { onSuccess: () => setCreateOpen(false) });
   }
 
   function handleUpdate(e: FormEvent) {
@@ -191,7 +188,12 @@ export function ProjectsPage() {
       </Dialog>
 
       {/* Edit Dialog */}
-      <Dialog open={!!editProject} onOpenChange={(open) => { if (!open) setEditProject(null); }}>
+      <Dialog
+        open={!!editProject}
+        onOpenChange={(open) => {
+          if (!open) setEditProject(null);
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Edit Project</DialogTitle>

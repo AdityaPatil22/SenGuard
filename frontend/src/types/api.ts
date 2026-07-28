@@ -30,7 +30,8 @@ export interface AuthResponse extends AuthTokens {
 
 export type ProjectStatus = "draft" | "submitted" | "evaluating" | "evaluated" | "approved" | "rejected";
 export type EvaluationStatus = "pending" | "running" | "completed" | "failed";
-export type ReportStatus = "draft" | "pending_review" | "in_review" | "approved" | "rejected" | "published" | "archived";
+export type ReportStatus =
+  "draft" | "pending_review" | "in_review" | "approved" | "rejected" | "published" | "archived";
 
 export interface Project {
   id: string;

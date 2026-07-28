@@ -1,7 +1,5 @@
 import pytest
 
-from app.auth.jwt import create_access_token, create_refresh_token
-
 
 @pytest.mark.asyncio
 async def test_refresh_token(client, auth_tokens):
