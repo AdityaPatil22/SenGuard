@@ -18,7 +18,9 @@ export async function createDataset(body: { name: string; project_id: string; de
   form.append("project_id", body.project_id);
   if (body.description) form.append("description", body.description);
   if (body.file) form.append("file", body.file);
-  const { data } = await api.post<ApiResponse<Dataset>>("/datasets", form);
+  const { data } = await api.post<ApiResponse<Dataset>>("/datasets", form, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
   return data.data;
 }
 

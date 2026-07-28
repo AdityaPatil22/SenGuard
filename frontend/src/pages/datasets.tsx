@@ -1,5 +1,5 @@
-import { Database, Plus, Trash2, Upload } from "lucide-react";
-import { useRef, useState, type FormEvent } from "react";
+import { Database, FileUp, Plus, Trash2, Upload, X } from "lucide-react";
+import { useCallback, useRef, useState, type FormEvent, type DragEvent } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -29,15 +29,35 @@ export function DatasetsPage() {
   const [projectId, setProjectId] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [dragging, setDragging] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  const ACCEPT = ".csv,.json,.jsonl,.txt,.tsv";
 
   function openCreate() {
     setName("");
     setDescription("");
     setProjectId("");
     setFile(null);
+    setDragging(false);
     if (fileRef.current) fileRef.current.value = "";
     setCreateOpen(true);
+  }
+
+  const handleDrop = useCallback((e: DragEvent) => {
+    e.preventDefault();
+    setDragging(false);
+    const dropped = e.dataTransfer.files[0];
+    if (dropped) {
+      setFile(dropped);
+      if (!name) setName(dropped.name.replace(/\.[^.]+$/, ""));
+    }
+  }, [name]);
+
+  function formatFileSize(bytes: number) {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   }
 
   function handleCreate(e: FormEvent) {
@@ -178,23 +198,63 @@ export function DatasetsPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="ds-file">File</Label>
-              <div className="flex items-center gap-2">
-                <Input
-                  id="ds-file"
-                  ref={fileRef}
-                  type="file"
-                  accept=".csv,.json,.jsonl,.txt,.tsv"
-                  onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-                />
-              </div>
-              <p className="text-xs text-muted-foreground">CSV, JSON, JSONL, TSV, or TXT</p>
+              <Label>File</Label>
+              <input
+                ref={fileRef}
+                type="file"
+                accept={ACCEPT}
+                className="hidden"
+                onChange={(e) => {
+                  const picked = e.target.files?.[0] ?? null;
+                  setFile(picked);
+                  if (picked && !name) setName(picked.name.replace(/\.[^.]+$/, ""));
+                }}
+              />
+              {file ? (
+                <div className="flex items-center gap-3 rounded-lg border bg-muted/30 p-3">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-primary/10">
+                    <FileUp className="h-4 w-4 text-primary" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{file.name}</p>
+                    <p className="text-xs text-muted-foreground">{formatFileSize(file.size)}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFile(null);
+                      if (fileRef.current) fileRef.current.value = "";
+                    }}
+                    className="rounded-md p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              ) : (
+                <div
+                  onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
+                  onDragLeave={() => setDragging(false)}
+                  onDrop={handleDrop}
+                  onClick={() => fileRef.current?.click()}
+                  className={`flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed p-6 transition-colors ${
+                    dragging
+                      ? "border-primary bg-primary/5"
+                      : "border-muted-foreground/25 hover:border-primary/50 hover:bg-muted/30"
+                  }`}
+                >
+                  <Upload className={`h-8 w-8 mb-2 ${dragging ? "text-primary" : "text-muted-foreground/50"}`} />
+                  <p className="text-sm font-medium">
+                    {dragging ? "Drop file here" : "Click to upload or drag and drop"}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">CSV, JSON, JSONL, TSV, or TXT</p>
+                </div>
+              )}
             </div>
             <div className="flex justify-end gap-2">
               <Button type="button" variant="ghost" onClick={() => setCreateOpen(false)}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={createDataset.isPending || !projectId} className="gap-2">
+              <Button type="submit" disabled={createDataset.isPending || !projectId || !file} className="gap-2">
                 <Upload className="h-4 w-4" />
                 {createDataset.isPending ? "Uploading..." : "Upload"}
               </Button>

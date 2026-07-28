@@ -2,7 +2,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import ORJSONResponse
+from starlette.responses import JSONResponse
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from sqlalchemy import text
@@ -68,7 +68,7 @@ app = FastAPI(
     description="AI Governance Platform",
     version="0.1.0",
     lifespan=lifespan,
-    default_response_class=ORJSONResponse,
+    default_response_class=JSONResponse,
     docs_url="/docs" if settings.is_development else None,
     redoc_url="/redoc" if settings.is_development else None,
 )

@@ -63,13 +63,19 @@ function ReportViewModal({ report, onClose }: { report: Report; onClose: () => v
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex items-center gap-2 mt-3">
-          <Badge variant={STATUS_VARIANT[report.status]}>{STATUS_LABEL[report.status]}</Badge>
-          {report.risk_score != null && (
-            <span className={`font-mono text-sm font-bold ${riskColor(report.risk_score)}`}>
-              {report.risk_score.toFixed(2)}
-            </span>
-          )}
+        <div className="flex items-center justify-between mt-3">
+          <div className="flex items-center gap-2">
+            <Badge variant={STATUS_VARIANT[report.status]}>{STATUS_LABEL[report.status]}</Badge>
+            {report.risk_score != null && (
+              <span className={`font-mono text-sm font-bold ${riskColor(report.risk_score)}`}>
+                {report.risk_score.toFixed(2)}
+              </span>
+            )}
+          </div>
+          <Button variant="outline" size="sm" className="gap-2" onClick={() => exportReport(report.id)}>
+            <Download className="h-3.5 w-3.5" />
+            Export JSON
+          </Button>
         </div>
 
         <Separator className="my-3" />
@@ -83,15 +89,6 @@ function ReportViewModal({ report, onClose }: { report: Report; onClose: () => v
 
         <div className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">
           {report.content || "No report content available."}
-        </div>
-
-        <Separator className="my-3" />
-
-        <div className="flex justify-end">
-          <Button variant="outline" size="sm" className="gap-2" onClick={() => exportReport(report.id)}>
-            <Download className="h-3.5 w-3.5" />
-            Export JSON
-          </Button>
         </div>
       </DialogContent>
     </Dialog>

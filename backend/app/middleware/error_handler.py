@@ -1,5 +1,5 @@
 from fastapi import Request
-from fastapi.responses import ORJSONResponse
+from starlette.responses import JSONResponse
 
 from app.core.exceptions import AppError
 from app.core.logging import get_logger
@@ -7,16 +7,16 @@ from app.core.logging import get_logger
 logger = get_logger(__name__)
 
 
-async def app_exception_handler(_request: Request, exc: AppError) -> ORJSONResponse:
-    return ORJSONResponse(
+async def app_exception_handler(_request: Request, exc: AppError) -> JSONResponse:
+    return JSONResponse(
         status_code=exc.status_code,
         content={"success": False, "message": exc.message, "errors": exc.errors},
     )
 
 
-async def unhandled_exception_handler(_request: Request, exc: Exception) -> ORJSONResponse:
+async def unhandled_exception_handler(_request: Request, exc: Exception) -> JSONResponse:
     logger.exception("Unhandled exception: %s", exc)
-    return ORJSONResponse(
+    return JSONResponse(
         status_code=500,
         content={"success": False, "message": "Internal server error", "errors": []},
     )
