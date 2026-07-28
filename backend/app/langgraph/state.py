@@ -3,9 +3,11 @@ from typing import Any, TypedDict
 
 class EvaluationState(TypedDict, total=False):
     project_id: str
-    prompts: list[str]
-    dataset_path: str | None
+    project_name: str
+    project_description: str
     model_name: str | None
+    dataset_samples: list[str]
+    repo_files: list[dict[str, str]]
 
     prompt_security_result: dict[str, Any]
     dataset_validation_result: dict[str, Any]

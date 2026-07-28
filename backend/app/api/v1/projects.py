@@ -18,6 +18,8 @@ def _serialize(project) -> dict:
         "id": str(project.id),
         "name": project.name,
         "description": project.description,
+        "repo_url": project.repo_url,
+        "repo_full_name": project.repo_full_name,
         "status": project.status,
         "owner_id": str(project.owner_id),
         "created_at": project.created_at.isoformat(),
@@ -32,7 +34,7 @@ async def create_project(
     current_user: User = Depends(get_current_user),
 ):
     service = ProjectService(db)
-    project = await service.create(data.name, data.description, current_user.id)
+    project = await service.create(data.name, data.description, current_user.id, repo_url=data.repo_url)
     return success(data=_serialize(project), message="Project created")
 
 

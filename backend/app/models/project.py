@@ -30,6 +30,8 @@ class Project(Base, UUIDMixin, TimestampMixin):
 
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str | None] = mapped_column(Text)
+    repo_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    repo_full_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     status: Mapped[str] = mapped_column(Enum(ProjectStatus), default=ProjectStatus.DRAFT, nullable=False)
 
     owner_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)

@@ -13,10 +13,18 @@ class ProjectService:
         self.db = db
         self.repo = ProjectRepository(db)
 
-    async def create(self, name: str, description: str | None, owner_id: uuid.UUID) -> Project:
+    async def create(self, name: str, description: str | None, owner_id: uuid.UUID, *, repo_url: str | None = None) -> Project:
+        repo_full_name = None
+        if repo_url:
+            parts = repo_url.rstrip("/").split("/")
+            if len(parts) >= 2:
+                repo_full_name = f"{parts[-2]}/{parts[-1]}"
+
         project = Project(
             name=name,
             description=description,
+            repo_url=repo_url,
+            repo_full_name=repo_full_name,
             status=ProjectStatus.DRAFT,
             owner_id=owner_id,
         )

@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import ORJSONResponse
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
-from sqlalchemy import select
+from sqlalchemy import select, text
 
 from app.api.v1 import router as v1_router
 from app.config import get_settings
@@ -20,11 +20,47 @@ from app.models.user import Role, RoleEnum
 settings = get_settings()
 
 
+def _sync_schema(conn):
+    """ponytail: sync columns + enum values to match models; swap for Alembic when needed"""
+    from sqlalchemy import Enum as SAEnum
+    from sqlalchemy import inspect as sa_inspect
+
+    inspector = sa_inspect(conn)
+
+    # add missing enum values
+    for table in Base.metadata.tables.values():
+        for col in table.columns:
+            if not isinstance(col.type, SAEnum) or not col.type.enums:
+                continue
+            pg_type_name = col.type.name or f"{table.name}_{col.name}"
+            existing = {
+                row[0]
+                for row in conn.execute(
+                    text("SELECT unnest(enum_range(NULL::{}))::text".format(pg_type_name))
+                )
+            }
+            for val in col.type.enums:
+                if val not in existing:
+                    conn.execute(text(f"ALTER TYPE {pg_type_name} ADD VALUE IF NOT EXISTS '{val}'"))
+
+    # add missing columns
+    for table_name, table in Base.metadata.tables.items():
+        if not inspector.has_table(table_name):
+            continue
+        existing = {c["name"] for c in inspector.get_columns(table_name)}
+        for col in table.columns:
+            if col.name in existing:
+                continue
+            col_type = col.type.compile(conn.dialect)
+            conn.execute(text(f'ALTER TABLE {table_name} ADD COLUMN IF NOT EXISTS "{col.name}" {col_type}'))
+
+
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     setup_logging("DEBUG" if settings.app_debug else "INFO")
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        await conn.run_sync(_sync_schema)
     async with async_session() as db:
         for role_name in RoleEnum:
             exists = (await db.execute(select(Role).where(Role.name == role_name))).scalar_one_or_none()

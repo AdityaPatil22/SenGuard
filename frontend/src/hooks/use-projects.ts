@@ -1,7 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { getProjects, createProject, updateProject, deleteProject } from "@/services/projects";
-import type { CreateProjectRequest, UpdateProjectRequest } from "@/types/api";
+import api from "@/services/api";
+import type { ApiResponse, CreateProjectRequest, GitHubRepo, UpdateProjectRequest } from "@/types/api";
 
 export function useProjects() {
   return useQuery({ queryKey: ["projects"], queryFn: getProjects });
@@ -28,5 +29,17 @@ export function useDeleteProject() {
   return useMutation({
     mutationFn: (id: string) => deleteProject(id),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["projects"] }),
+  });
+}
+
+export function useGitHubRepos(enabled: boolean) {
+  return useQuery({
+    queryKey: ["github-repos"],
+    queryFn: async () => {
+      const { data } = await api.get<ApiResponse<GitHubRepo[]>>("/auth/github/repos?per_page=100");
+      return data.data;
+    },
+    enabled,
+    staleTime: 60_000,
   });
 }

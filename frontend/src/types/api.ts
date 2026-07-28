@@ -37,6 +37,8 @@ export interface Project {
   id: string;
   name: string;
   description: string | null;
+  repo_url: string | null;
+  repo_full_name: string | null;
   status: ProjectStatus;
   owner_id: string;
   created_at: string;
@@ -96,9 +98,20 @@ export interface CreateDatasetRequest {
 export interface CreateProjectRequest {
   name: string;
   description?: string;
+  repo_url?: string;
 }
 
 export interface UpdateProjectRequest {
   name?: string;
   description?: string;
+  repo_url?: string;
+}
+
+export interface GitHubRepo {
+  full_name: string;
+  name: string;
+  description: string | null;
+  private: boolean;
+  language: string | null;
+  html_url: string;
 }

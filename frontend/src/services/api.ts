@@ -1,5 +1,7 @@
 import axios from "axios";
 
+import { useAuthStore } from "@/store/auth";
+
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || "/api/v1",
   headers: { "Content-Type": "application/json" },
@@ -53,9 +55,7 @@ api.interceptors.response.use(
 
     const refreshToken = localStorage.getItem("refresh_token");
     if (!refreshToken) {
-      localStorage.removeItem("access_token");
-      localStorage.removeItem("refresh_token");
-      window.location.href = "/login";
+      useAuthStore.getState().logout();
       return Promise.reject(error);
     }
 
@@ -74,9 +74,7 @@ api.interceptors.response.use(
       return api(originalRequest);
     } catch (refreshError) {
       processQueue(refreshError, null);
-      localStorage.removeItem("access_token");
-      localStorage.removeItem("refresh_token");
-      window.location.href = "/login";
+      useAuthStore.getState().logout();
       return Promise.reject(refreshError);
     } finally {
       isRefreshing = false;

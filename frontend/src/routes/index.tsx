@@ -1,4 +1,4 @@
-import { createBrowserRouter } from "react-router-dom";
+import { createBrowserRouter, Navigate } from "react-router-dom";
 
 import { AppLayout } from "@/layouts/app-layout";
 import { AuthCallbackPage } from "@/pages/auth-callback";
@@ -15,6 +15,7 @@ export const router = createBrowserRouter([
     element: <AuthCallbackPage />,
   },
   {
+    path: "/",
     element: <AppLayout />,
     children: [
       { index: true, element: <DashboardPage /> },
@@ -24,5 +25,9 @@ export const router = createBrowserRouter([
       { path: "reports", element: <ReportsPage /> },
       { path: "settings", element: <SettingsPage /> },
     ],
+  },
+  {
+    path: "*",
+    element: <Navigate to="/" replace />,
   },
 ]);

@@ -1,3 +1,4 @@
+import logging
 import uuid
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -6,8 +7,13 @@ from app.core.exceptions import BadRequestError, NotFoundError
 from app.langgraph.graph import get_evaluation_workflow
 from app.models.evaluation import Evaluation, EvaluationStatus
 from app.models.project import Project
+from app.repositories.dataset import DatasetRepository
 from app.repositories.evaluation import EvaluationRepository
+from app.services.github import cleanup_repo, clone_repo, extract_key_files
 from app.services.report import ReportService
+from app.storage.base import LocalStorage
+
+logger = logging.getLogger(__name__)
 
 
 class EvaluationService:
@@ -48,6 +54,25 @@ class EvaluationService:
             return await self.repo.get_by_status(status, skip, limit)
         return await self.repo.get_all(skip, limit)
 
+    async def _load_dataset_samples(self, project_id: uuid.UUID, max_rows: int = 50) -> list[str]:
+        dataset_repo = DatasetRepository(self.db)
+        datasets = await dataset_repo.get_by_project(project_id, skip=0, limit=10)
+        samples: list[str] = []
+        storage = LocalStorage()
+        for ds in datasets:
+            if not ds.file_path:
+                continue
+            try:
+                if await storage.exists(ds.file_path):
+                    raw = await storage.load(ds.file_path)
+                    lines = raw.decode("utf-8", errors="replace").splitlines()[:max_rows]
+                    samples.extend(lines)
+            except Exception:
+                continue
+            if len(samples) >= max_rows:
+                break
+        return samples[:max_rows]
+
     async def run(self, evaluation_id: uuid.UUID) -> Evaluation:
         evaluation = await self.get(evaluation_id)
         if evaluation.status == EvaluationStatus.RUNNING:
@@ -56,13 +81,32 @@ class EvaluationService:
         await self.repo.update(evaluation, {"status": EvaluationStatus.RUNNING})
 
         try:
-            # ponytail: sync since LangGraph nodes are stubs; swap to background task when real
-            result = await get_evaluation_workflow().ainvoke(
-                {
-                    "project_id": str(evaluation.project_id),
-                    "model_name": evaluation.model_name,
-                }
-            )
+            project = await self.db.get(Project, evaluation.project_id)
+            dataset_samples = await self._load_dataset_samples(evaluation.project_id)
+
+            repo_files: list[dict] = []
+            repo_path: str | None = None
+            if project and project.repo_url:
+                try:
+                    repo_path = await clone_repo(project.repo_url)
+                    repo_files = extract_key_files(repo_path)
+                except Exception as e:
+                    logger.warning("Failed to clone repo %s: %s", project.repo_url, e)
+
+            try:
+                result = await get_evaluation_workflow().ainvoke(
+                    {
+                        "project_id": str(evaluation.project_id),
+                        "project_name": project.name if project else "Unknown",
+                        "project_description": project.description or "" if project else "",
+                        "model_name": evaluation.model_name,
+                        "dataset_samples": dataset_samples,
+                        "repo_files": repo_files,
+                    }
+                )
+            finally:
+                if repo_path:
+                    cleanup_repo(repo_path)
 
             summary = result.get("report") or None
             await self.repo.update(

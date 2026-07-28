@@ -41,6 +41,7 @@ class AuthService:
             user.github_username = gh_user["login"]
             user.email = gh_user.get("email")
             user.avatar_url = gh_user.get("avatar_url")
+            user.github_token = gh_token
             await self.db.flush()
         else:
             role = (await self.db.execute(select(Role).where(Role.name == RoleEnum.DEVELOPER))).scalar_one_or_none()
@@ -51,6 +52,7 @@ class AuthService:
                 github_username=gh_user["login"],
                 email=gh_user.get("email"),
                 avatar_url=gh_user.get("avatar_url"),
+                github_token=gh_token,
                 role_id=role.id,
             )
             user = await self.user_repo.create(user)
