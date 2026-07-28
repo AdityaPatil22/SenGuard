@@ -17,8 +17,9 @@ if TYPE_CHECKING:
 
 class ReportStatus(enum.StrEnum):
     DRAFT = "draft"
-    PUBLISHED = "published"
-    ARCHIVED = "archived"
+    IN_REVIEW = "in_review"
+    APPROVED = "approved"
+    REJECTED = "rejected"
 
 
 class Report(Base, UUIDMixin, TimestampMixin):
@@ -26,6 +27,7 @@ class Report(Base, UUIDMixin, TimestampMixin):
 
     content: Mapped[str | None] = mapped_column(Text)
     status: Mapped[str] = mapped_column(Enum(ReportStatus), default=ReportStatus.DRAFT, nullable=False)
+    rejection_comment: Mapped[str | None] = mapped_column(Text)
 
     evaluation_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("evaluations.id"), unique=True, nullable=False

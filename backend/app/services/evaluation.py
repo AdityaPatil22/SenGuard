@@ -7,6 +7,7 @@ from app.langgraph.graph import evaluation_workflow
 from app.models.evaluation import Evaluation, EvaluationStatus
 from app.models.project import Project
 from app.repositories.evaluation import EvaluationRepository
+from app.services.report import ReportService
 
 
 class EvaluationService:
@@ -61,16 +62,20 @@ class EvaluationService:
                 "model_name": evaluation.model_name,
             })
 
+            summary = result.get("report") or None
             await self.repo.update(evaluation, {
                 "status": EvaluationStatus.COMPLETED,
                 "risk_score": result.get("risk_score"),
-                "summary": result.get("report") or None,
+                "summary": summary,
                 "node_results": {
                     "prompt_security": result.get("prompt_security_result"),
                     "dataset_validation": result.get("dataset_validation_result"),
                     "model_evaluation": result.get("model_evaluation_result"),
                 },
             })
+
+            report_svc = ReportService(self.db)
+            await report_svc.create_from_evaluation(evaluation.id, summary)
         except Exception as e:
             await self.repo.update(evaluation, {
                 "status": EvaluationStatus.FAILED,
