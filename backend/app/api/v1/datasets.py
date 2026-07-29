@@ -4,12 +4,11 @@ from fastapi import APIRouter, Depends, File, Form, Query, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.dependencies import get_current_user
-from app.config.settings import get_settings
 from app.core.response import success
 from app.db.session import get_db
 from app.models.user import User
 from app.services.dataset import DatasetService
-from app.storage.base import get_storage
+from app.storage.base import get_storage_from_settings
 
 router = APIRouter(prefix="/datasets", tags=["datasets"])
 
@@ -28,8 +27,7 @@ def _serialize(dataset) -> dict:
 
 
 def _get_storage():
-    settings = get_settings()
-    return get_storage(settings.storage_backend, base_path=settings.storage_local_path)
+    return get_storage_from_settings()
 
 
 @router.post("")

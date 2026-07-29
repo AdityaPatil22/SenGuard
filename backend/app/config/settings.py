@@ -34,6 +34,10 @@ class Settings(BaseSettings):
     storage_backend: str = "local"
     storage_local_path: str = "./storage"
 
+    supabase_url: str = ""
+    supabase_service_key: str = ""
+    supabase_storage_bucket: str = "datasets"
+
     @property
     def is_development(self) -> bool:
         return self.app_env == "development"

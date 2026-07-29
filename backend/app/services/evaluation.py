@@ -11,7 +11,7 @@ from app.repositories.dataset import DatasetRepository
 from app.repositories.evaluation import EvaluationRepository
 from app.services.github import cleanup_repo, clone_repo, extract_key_files
 from app.services.report import ReportService
-from app.storage.base import LocalStorage
+from app.storage.base import get_storage_from_settings
 
 logger = logging.getLogger(__name__)
 
@@ -58,7 +58,7 @@ class EvaluationService:
         dataset_repo = DatasetRepository(self.db)
         datasets = await dataset_repo.get_by_project(project_id, skip=0, limit=10)
         samples: list[str] = []
-        storage = LocalStorage()
+        storage = get_storage_from_settings()
         for ds in datasets:
             if not ds.file_path:
                 continue
