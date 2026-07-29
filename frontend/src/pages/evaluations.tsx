@@ -1,5 +1,18 @@
-import { AlertTriangle, CheckCircle2, Clock, FlaskConical, Loader2, Play, Plus, ShieldCheck, XCircle } from "lucide-react";
-import { useState, type FormEvent } from "react";
+import {
+  AlertTriangle,
+  CheckCircle2,
+  Clock,
+  Database,
+  FileText,
+  FlaskConical,
+  Gauge,
+  Loader2,
+  Play,
+  Plus,
+  ShieldCheck,
+  XCircle,
+} from "lucide-react";
+import { useEffect, useState, type FormEvent } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -10,6 +23,7 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
+import { PipelineStepper } from "@/components/ui/pipeline-stepper";
 import { useEvaluations, useCreateEvaluation, useRunEvaluation } from "@/hooks/use-evaluations";
 import { useProjects } from "@/hooks/use-projects";
 import type { Evaluation, EvaluationStatus } from "@/types/api";
@@ -40,6 +54,29 @@ function riskLabel(score: number | null) {
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+}
+
+const PIPELINE_STEPS = [
+  { label: "Prompt Security", icon: <ShieldCheck className="h-3.5 w-3.5" /> },
+  { label: "Dataset Check", icon: <Database className="h-3.5 w-3.5" /> },
+  { label: "Model Eval", icon: <AlertTriangle className="h-3.5 w-3.5" /> },
+  { label: "Risk Score", icon: <Gauge className="h-3.5 w-3.5" /> },
+  { label: "Report", icon: <FileText className="h-3.5 w-3.5" /> },
+];
+
+function useSimulatedStep(isRunning: boolean) {
+  const [step, setStep] = useState(1);
+  useEffect(() => {
+    if (!isRunning) {
+      setStep(1);
+      return;
+    }
+    const interval = setInterval(() => {
+      setStep((s) => (s < PIPELINE_STEPS.length ? s + 1 : s));
+    }, 8000);
+    return () => clearInterval(interval);
+  }, [isRunning]);
+  return step;
 }
 
 const NODE_LABELS: Record<string, { label: string; icon: typeof ShieldCheck }> = {
@@ -90,11 +127,92 @@ function NodeResultCard({ nodeKey, data }: { nodeKey: string; data: unknown }) {
   );
 }
 
+function EvaluationCard({
+  evaluation: e,
+  projectName,
+  isRunning,
+  onRun,
+  onClick,
+}: {
+  evaluation: Evaluation;
+  projectName: string;
+  isRunning: boolean;
+  onRun: (ev: React.MouseEvent) => void;
+  onClick: () => void;
+}) {
+  const status = e.status.toLowerCase() as EvaluationStatus;
+  const config = STATUS_CONFIG[status] || STATUS_CONFIG.pending;
+  const StatusIcon = config.icon;
+  const pipelineStep = useSimulatedStep(isRunning);
+
+  return (
+    <Card className="transition-colors hover:bg-muted/30 cursor-pointer" onClick={onClick}>
+      <CardContent className="p-4 space-y-3">
+        <div className="flex items-center gap-4">
+          <div
+            className={`h-10 w-10 rounded-lg flex items-center justify-center shrink-0 ${
+              isRunning
+                ? "bg-warning/10"
+                : status === "completed"
+                  ? "bg-success/10"
+                  : status === "failed"
+                    ? "bg-destructive/10"
+                    : "bg-muted"
+            }`}
+          >
+            <StatusIcon
+              className={`h-5 w-5 ${
+                isRunning
+                  ? "text-warning animate-spin"
+                  : status === "completed"
+                    ? "text-success"
+                    : status === "failed"
+                      ? "text-destructive"
+                      : "text-muted-foreground"
+              }`}
+            />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2">
+              <p className="text-sm font-medium truncate">{projectName}</p>
+              <Badge variant={isRunning ? "warning" : config.variant} className="shrink-0">
+                {isRunning ? "Running" : config.label}
+              </Badge>
+            </div>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {e.model_name || "Default model"} &middot; {formatDate(e.created_at)}
+              {status === "failed" && e.error_message && (
+                <span className="text-destructive"> &middot; {e.error_message.slice(0, 80)}</span>
+              )}
+            </p>
+          </div>
+          <div className="flex items-center gap-3 shrink-0">
+            {e.risk_score != null && (
+              <div className="text-right hidden sm:block">
+                <p className={`text-lg font-bold font-mono ${riskColor(e.risk_score)}`}>{e.risk_score.toFixed(2)}</p>
+                <p className={`text-[10px] font-medium ${riskColor(e.risk_score)}`}>{riskLabel(e.risk_score)}</p>
+              </div>
+            )}
+            {status === "pending" && !isRunning && (
+              <Button variant="default" size="sm" className="gap-1.5" onClick={onRun}>
+                <Play className="h-3.5 w-3.5" />
+                Run
+              </Button>
+            )}
+          </div>
+        </div>
+        {isRunning && <PipelineStepper steps={PIPELINE_STEPS} currentStep={pipelineStep} />}
+      </CardContent>
+    </Card>
+  );
+}
+
 function EvaluationDetail({ evaluation, onClose }: { evaluation: Evaluation; onClose: () => void }) {
   const status = evaluation.status.toLowerCase() as EvaluationStatus;
   const config = STATUS_CONFIG[status] || STATUS_CONFIG.pending;
   const StatusIcon = config.icon;
   const nodeResults = evaluation.node_results as Record<string, unknown> | null;
+  const pipelineStep = useSimulatedStep(status === "running");
 
   return (
     <Dialog open onOpenChange={() => onClose()}>
@@ -138,14 +256,15 @@ function EvaluationDetail({ evaluation, onClose }: { evaluation: Evaluation; onC
           )}
 
           {status === "running" && (
-            <div className="flex items-center gap-3 p-4 rounded-lg bg-warning/5 border border-warning/20">
-              <Loader2 className="h-5 w-5 text-warning animate-spin" />
-              <div>
-                <p className="text-sm font-medium">Evaluation in progress</p>
-                <p className="text-xs text-muted-foreground">
-                  The AI pipeline is analyzing the project. This typically takes 1-3 minutes.
-                </p>
+            <div className="rounded-lg border border-warning/20 bg-warning/5 p-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <Loader2 className="h-4 w-4 text-warning animate-spin" />
+                <p className="text-sm font-medium">Pipeline running&hellip;</p>
               </div>
+              <PipelineStepper steps={PIPELINE_STEPS} currentStep={pipelineStep} />
+              <p className="text-xs text-muted-foreground text-center">
+                This typically takes 1-3 minutes
+              </p>
             </div>
           )}
 
@@ -265,89 +384,17 @@ export function EvaluationsPage() {
       ) : (
         <div className="space-y-2">
           {evaluations.map((e) => {
-            const status = e.status.toLowerCase() as EvaluationStatus;
-            const config = STATUS_CONFIG[status] || STATUS_CONFIG.pending;
-            const StatusIcon = config.icon;
-            const isRunning = runningId === e.id || status === "running";
+            const isRunning = runningId === e.id || e.status.toLowerCase() === "running";
 
             return (
-              <Card
+              <EvaluationCard
                 key={e.id}
-                className="transition-colors hover:bg-muted/30 cursor-pointer"
+                evaluation={e}
+                projectName={projectMap[e.project_id] || "Unknown Project"}
+                isRunning={isRunning}
+                onRun={(ev) => handleRun(e.id, ev)}
                 onClick={() => setDetailEval(e)}
-              >
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-4">
-                    <div
-                      className={`h-10 w-10 rounded-lg flex items-center justify-center shrink-0 ${
-                        status === "completed"
-                          ? "bg-success/10"
-                          : status === "failed"
-                            ? "bg-destructive/10"
-                            : status === "running"
-                              ? "bg-warning/10"
-                              : "bg-muted"
-                      }`}
-                    >
-                      <StatusIcon
-                        className={`h-5 w-5 ${
-                          status === "completed"
-                            ? "text-success"
-                            : status === "failed"
-                              ? "text-destructive"
-                              : status === "running"
-                                ? "text-warning animate-spin"
-                                : "text-muted-foreground"
-                        }`}
-                      />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <p className="text-sm font-medium truncate">
-                          {projectMap[e.project_id] || "Unknown Project"}
-                        </p>
-                        <Badge variant={config.variant} className="shrink-0">
-                          {config.label}
-                        </Badge>
-                      </div>
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        {e.model_name || "Default model"} &middot; {formatDate(e.created_at)}
-                        {status === "failed" && e.error_message && (
-                          <span className="text-destructive"> &middot; {e.error_message.slice(0, 80)}</span>
-                        )}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-3 shrink-0">
-                      {e.risk_score != null && (
-                        <div className="text-right hidden sm:block">
-                          <p className={`text-lg font-bold font-mono ${riskColor(e.risk_score)}`}>
-                            {e.risk_score.toFixed(2)}
-                          </p>
-                          <p className={`text-[10px] font-medium ${riskColor(e.risk_score)}`}>
-                            {riskLabel(e.risk_score)}
-                          </p>
-                        </div>
-                      )}
-                      {status === "pending" && (
-                        <Button
-                          variant="default"
-                          size="sm"
-                          className="gap-1.5"
-                          disabled={isRunning}
-                          onClick={(ev) => handleRun(e.id, ev)}
-                        >
-                          {isRunning ? (
-                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                          ) : (
-                            <Play className="h-3.5 w-3.5" />
-                          )}
-                          {isRunning ? "Starting..." : "Run"}
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+              />
             );
           })}
         </div>

@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Counter } from "@/components/ui/counter";
 import { useEvaluations } from "@/hooks/use-evaluations";
 import { useProjects } from "@/hooks/use-projects";
 import { useReports } from "@/hooks/use-reports";
@@ -44,10 +45,10 @@ export function DashboardPage() {
       : 0;
 
   const stats = [
-    { label: "Projects", value: projects.length, icon: FolderKanban, href: "/projects" },
-    { label: "Evaluations", value: evaluations.length, icon: FlaskConical, href: "/evaluations" },
-    { label: "Reports", value: reports.length, icon: FileText, href: "/reports" },
-    { label: "Avg Risk", value: avgRisk.toFixed(2), icon: ShieldAlert, href: "/evaluations" },
+    { label: "Projects", value: projects.length, icon: FolderKanban, href: "/projects", isDecimal: false },
+    { label: "Evaluations", value: evaluations.length, icon: FlaskConical, href: "/evaluations", isDecimal: false },
+    { label: "Reports", value: reports.length, icon: FileText, href: "/reports", isDecimal: false },
+    { label: "Avg Risk", value: parseFloat(avgRisk.toFixed(2)), icon: ShieldAlert, href: "/evaluations", isDecimal: true },
   ];
 
   return (
@@ -66,7 +67,14 @@ export function DashboardPage() {
                 <s.icon className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-semibold">{s.value}</div>
+                <div className="text-2xl font-semibold">
+                  <Counter
+                    value={s.value}
+                    fontSize={24}
+                    fontWeight={600}
+                    places={s.isDecimal ? [1, ".", 0.1, 0.01] : undefined}
+                  />
+                </div>
               </CardContent>
             </Card>
           </Link>
