@@ -2,9 +2,9 @@ from fastapi import Request
 from starlette.responses import JSONResponse
 
 from app.core.exceptions import AppError
-from app.core.logging import get_logger
+import logging
 
-logger = get_logger(__name__)
+logger = logging.getLogger(__name__)
 
 
 async def app_exception_handler(_request: Request, exc: AppError) -> JSONResponse:

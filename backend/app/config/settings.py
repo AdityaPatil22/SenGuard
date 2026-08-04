@@ -43,10 +43,6 @@ class Settings(BaseSettings):
         return self.app_env == "development"
 
     @property
-    def is_production(self) -> bool:
-        return self.app_env == "production"
-
-    @property
     def database_url_sync(self) -> str:
         return self.database_url.replace("+asyncpg", "+psycopg2")
 

@@ -1,8 +1,7 @@
+import json
 import logging
 import sys
 from typing import Any
-
-import orjson
 
 
 class JSONFormatter(logging.Formatter):
@@ -17,7 +16,7 @@ class JSONFormatter(logging.Formatter):
             log_data["exception"] = self.formatException(record.exc_info)
         if hasattr(record, "extra_data"):
             log_data["data"] = record.extra_data
-        return orjson.dumps(log_data).decode()
+        return json.dumps(log_data)
 
 
 def setup_logging(level: str = "INFO") -> None:
@@ -28,7 +27,3 @@ def setup_logging(level: str = "INFO") -> None:
     root.addHandler(handler)
     root.setLevel(getattr(logging, level.upper(), logging.INFO))
     logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
-
-
-def get_logger(name: str) -> logging.Logger:
-    return logging.getLogger(name)

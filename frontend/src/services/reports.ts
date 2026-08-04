@@ -6,11 +6,6 @@ export async function getReports() {
   return data.data;
 }
 
-export async function getReport(id: string) {
-  const { data } = await api.get<ApiResponse<Report>>(`/reports/${id}`);
-  return data.data;
-}
-
 export async function approveReport(id: string) {
   const { data } = await api.post<ApiResponse<Report>>(`/reports/${id}/approve`);
   return data.data;

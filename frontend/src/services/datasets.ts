@@ -7,11 +7,6 @@ export async function getDatasets(projectId?: string) {
   return data.data;
 }
 
-export async function getDataset(id: string) {
-  const { data } = await api.get<ApiResponse<Dataset>>(`/datasets/${id}`);
-  return data.data;
-}
-
 export async function createDataset(body: { name: string; project_id?: string; description?: string; file?: File }) {
   const form = new FormData();
   form.append("name", body.name);

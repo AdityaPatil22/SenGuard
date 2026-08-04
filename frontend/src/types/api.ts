@@ -4,12 +4,6 @@ export interface ApiResponse<T = unknown> {
   data: T;
 }
 
-export interface ApiError {
-  success: false;
-  message: string;
-  errors: unknown[];
-}
-
 export interface AuthTokens {
   access_token: string;
   refresh_token: string;
@@ -88,12 +82,6 @@ export interface Dataset {
   project_id: string | null;
   created_at: string;
   updated_at: string;
-}
-
-export interface CreateDatasetRequest {
-  name: string;
-  project_id?: string;
-  description?: string;
 }
 
 export interface CreateProjectRequest {
