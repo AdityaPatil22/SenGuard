@@ -114,6 +114,7 @@ Return JSON with:
             "supplementary_findings": [],
             "summary": f"LLM analysis failed: {e}",
         }
+        state.setdefault("errors", []).append(f"AI analysis failed: {e}")
 
     return state
 
@@ -184,6 +185,7 @@ Return JSON with:
             "adjustment_reason": f"LLM scoring failed, using base score: {e}",
             "risk_level": "low" if base_score <= 25 else "medium" if base_score <= 50 else "high" if base_score <= 75 else "critical",
         }
+        state.setdefault("errors", []).append(f"Risk scoring AI failed: {e}")
 
     return state
 
@@ -237,5 +239,6 @@ Keep it concise and actionable. Under 800 words."""
     except Exception as e:
         logger.exception("report_generation node failed")
         state["report"] = f"# Evaluation Report — {project_name}\n\nRisk Score: {risk_score}/100\n\nReport generation failed: {e}"
+        state.setdefault("errors", []).append(f"Report generation failed: {e}")
 
     return state

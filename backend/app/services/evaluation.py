@@ -138,12 +138,14 @@ class EvaluationService:
                     cleanup_repo(repo_path)
 
             summary = result.get("report") or None
+            pipeline_errors = result.get("errors") or []
             await self.repo.update(
                 evaluation,
                 {
                     "status": EvaluationStatus.COMPLETED,
                     "risk_score": result.get("risk_score"),
                     "summary": summary,
+                    "error_message": "; ".join(pipeline_errors) if pipeline_errors else None,
                     "node_results": {
                         "scanners": result.get("scanner_results"),
                         "llm_analysis": result.get("llm_analysis_result"),

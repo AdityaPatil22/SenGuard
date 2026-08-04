@@ -20,3 +20,4 @@ class EvaluationState(TypedDict, total=False):
     risk_breakdown: dict[str, Any] | None
     report: str | None
     error: str | None
+    errors: list[str]

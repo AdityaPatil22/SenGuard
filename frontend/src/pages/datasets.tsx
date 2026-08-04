@@ -178,7 +178,7 @@ export function DatasetsPage() {
                 ) : (
                   filtered.map((d) => (
                     <TableRow key={d.id}>
-                      <TableCell className="font-medium">{d.name}</TableCell>
+                      <TableCell className="font-medium max-w-[200px] truncate">{d.name}</TableCell>
                       <TableCell className="text-muted-foreground">
                         {d.project_id ? (projectMap[d.project_id] ?? d.project_id.slice(0, 8)) : "—"}
                       </TableCell>
@@ -210,12 +210,12 @@ export function DatasetsPage() {
 
       {/* Create dialog */}
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Upload Dataset</DialogTitle>
             <DialogDescription>Upload an evaluation dataset. Optionally assign it to a project.</DialogDescription>
           </DialogHeader>
-          <form onSubmit={handleCreate} className="space-y-4 mt-4">
+          <form onSubmit={handleCreate} className="space-y-4 mt-4 min-w-0">
             <div className="space-y-2">
               <Label htmlFor="ds-name">Name</Label>
               <Input

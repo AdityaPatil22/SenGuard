@@ -1,4 +1,5 @@
 import { Github, Moon, Sun } from "lucide-react";
+import { toast } from "sonner";
 import { useEffect, useState } from "react";
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -106,7 +107,7 @@ function AccountCard() {
 
         <Separator />
 
-        <Button variant="destructive" size="sm" onClick={logout}>
+        <Button variant="destructive" size="sm" onClick={() => { logout(); toast.success("Signed out"); }}>
           Sign out
         </Button>
       </CardContent>

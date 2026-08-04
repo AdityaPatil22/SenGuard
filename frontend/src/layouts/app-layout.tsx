@@ -28,6 +28,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 
+import { toast } from "sonner";
 import { useAuthStore } from "@/store/auth";
 import { useThemeStore } from "@/store/theme";
 import api from "@/services/api";
@@ -153,7 +154,7 @@ function ProfileButton() {
             <DropdownMenuSeparator />
           </>
         )}
-        <DropdownMenuItem className="text-destructive gap-2" onSelect={logout}>
+        <DropdownMenuItem className="text-destructive gap-2" onClick={() => { logout(); toast.success("Signed out"); }}>
           <LogOut className="h-3.5 w-3.5" />
           Sign out
         </DropdownMenuItem>

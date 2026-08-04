@@ -413,6 +413,17 @@ export function EvaluationDetailPage() {
         </div>
       )}
 
+      {/* Partial failure warning */}
+      {status === "completed" && evaluation.error_message && (
+        <div className="rounded-lg border border-warning/30 bg-warning/5 p-4">
+          <p className="text-sm font-medium text-warning mb-1">Completed with errors</p>
+          <p className="text-sm text-foreground whitespace-pre-wrap">{evaluation.error_message}</p>
+          <p className="text-xs text-muted-foreground mt-2">
+            The risk score shown is based on deterministic scanners only. AI analysis was unavailable.
+          </p>
+        </div>
+      )}
+
       {/* Pipeline stepper */}
       {isRunning && (
         <div className="rounded-lg border border-warning/20 bg-warning/5 p-4 space-y-3">
