@@ -4,6 +4,10 @@ import { Navigate, useNavigate } from "react-router-dom";
 import { useAuthStore } from "@/store/auth";
 import api from "@/services/api";
 import type { ApiResponse, AuthResponse } from "@/types/api";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
+import { ShieldAlert, ShieldCheck } from "lucide-react";
 
 export function AuthCallbackPage() {
   const navigate = useNavigate();
@@ -36,22 +40,39 @@ export function AuthCallbackPage() {
 
   if (isAuthenticated) return <Navigate to="/" replace />;
 
-  if (error) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-background p-4">
-        <div className="text-center space-y-4">
-          <p className="text-destructive">{error}</p>
-          <a href="/" className="text-sm text-primary font-medium">
-            Back to home
-          </a>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background">
-      <p className="text-muted-foreground">Signing in...</p>
+    <div className="flex min-h-screen items-center justify-center bg-background p-4">
+      <Card className="w-full max-w-sm">
+        <CardContent className="flex flex-col items-center gap-4 pt-6">
+          {error ? (
+            <>
+              <ShieldAlert className="size-10 text-destructive" />
+              <div className="text-center space-y-1">
+                <p className="font-medium text-destructive">{error}</p>
+                <p className="text-sm text-muted-foreground">
+                  Please try signing in again.
+                </p>
+              </div>
+              <a href="/">
+                <Button variant="outline" size="sm">
+                  Back to home
+                </Button>
+              </a>
+            </>
+          ) : (
+            <>
+              <ShieldCheck className="size-10 text-primary" />
+              <div className="text-center space-y-1">
+                <p className="font-medium">Signing in...</p>
+                <p className="text-sm text-muted-foreground">
+                  Authenticating with GitHub
+                </p>
+              </div>
+              <Spinner className="size-6 text-primary" />
+            </>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

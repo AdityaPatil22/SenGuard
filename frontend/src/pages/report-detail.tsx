@@ -115,7 +115,7 @@ export function ReportDetailPage() {
         </BreadcrumbList>
       </Breadcrumb>
 
-      <div className="sticky top-0 z-10 bg-background border-b pb-4 -mx-1 px-1">
+      <div className="sticky top-0 z-10 bg-background border-b py-4 -mx-4 px-4 md:-mx-6 md:px-6">
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div className="flex items-center gap-3">
             <Badge variant={STATUS_VARIANT[report.status]}>{STATUS_LABEL[report.status]}</Badge>
