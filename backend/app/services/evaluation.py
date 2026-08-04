@@ -102,6 +102,7 @@ class EvaluationService:
                         "model_name": evaluation.model_name,
                         "dataset_samples": dataset_samples,
                         "repo_files": repo_files,
+                        "repo_path": repo_path,
                     }
                 )
             finally:
@@ -116,9 +117,9 @@ class EvaluationService:
                     "risk_score": result.get("risk_score"),
                     "summary": summary,
                     "node_results": {
-                        "prompt_security": result.get("prompt_security_result"),
-                        "dataset_validation": result.get("dataset_validation_result"),
-                        "model_evaluation": result.get("model_evaluation_result"),
+                        "scanners": result.get("scanner_results"),
+                        "llm_analysis": result.get("llm_analysis_result"),
+                        "risk_breakdown": result.get("risk_breakdown"),
                     },
                 },
             )

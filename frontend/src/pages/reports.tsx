@@ -12,6 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useReports, useApproveReport, useRejectReport } from "@/hooks/use-reports";
 import { exportReport } from "@/services/reports";
 import type { Report, ReportStatus } from "@/types/api";
+import { riskColor, riskLabel, renderMarkdown } from "@/lib/utils";
 
 const STATUS_VARIANT: Record<ReportStatus, "default" | "secondary" | "destructive" | "success" | "warning"> = {
   draft: "secondary",
@@ -33,19 +34,6 @@ const STATUS_LABEL: Record<ReportStatus, string> = {
   archived: "Archived",
 };
 
-function riskColor(score: number | null) {
-  if (score == null) return "text-muted-foreground";
-  if (score < 0.3) return "text-success";
-  if (score < 0.6) return "text-warning";
-  return "text-destructive";
-}
-
-function riskLabel(score: number | null) {
-  if (score == null) return "Not scored";
-  if (score < 0.3) return "Low Risk";
-  if (score < 0.6) return "Medium Risk";
-  return "High Risk";
-}
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
@@ -68,7 +56,7 @@ function ReportViewModal({ report, onClose }: { report: Report; onClose: () => v
             <Badge variant={STATUS_VARIANT[report.status]}>{STATUS_LABEL[report.status]}</Badge>
             {report.risk_score != null && (
               <span className={`font-mono text-sm font-bold ${riskColor(report.risk_score)}`}>
-                {report.risk_score.toFixed(2)}
+                {report.risk_score.toFixed(0)}
               </span>
             )}
           </div>
@@ -87,9 +75,14 @@ function ReportViewModal({ report, onClose }: { report: Report; onClose: () => v
           </div>
         )}
 
-        <div className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">
-          {report.content || "No report content available."}
-        </div>
+        {report.content ? (
+          <div
+            className="text-sm text-foreground leading-relaxed max-h-[60vh] overflow-y-auto"
+            dangerouslySetInnerHTML={{ __html: renderMarkdown(report.content) }}
+          />
+        ) : (
+          <p className="text-sm text-muted-foreground">No report content available.</p>
+        )}
       </DialogContent>
     </Dialog>
   );
@@ -213,7 +206,7 @@ export function ReportsPage() {
                     {r.risk_score != null && (
                       <div className="text-right hidden sm:block">
                         <p className={`text-lg font-bold font-mono ${riskColor(r.risk_score)}`}>
-                          {r.risk_score.toFixed(2)}
+                          {r.risk_score.toFixed(0)}
                         </p>
                         <p className={`text-[10px] font-medium ${riskColor(r.risk_score)}`}>
                           {riskLabel(r.risk_score)}

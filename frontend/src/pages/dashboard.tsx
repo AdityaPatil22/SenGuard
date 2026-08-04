@@ -8,6 +8,7 @@ import { Counter } from "@/components/ui/counter";
 import { useEvaluations } from "@/hooks/use-evaluations";
 import { useProjects } from "@/hooks/use-projects";
 import { useReports } from "@/hooks/use-reports";
+import { riskColor } from "@/lib/utils";
 
 const STATUS_VARIANT: Record<string, "default" | "secondary" | "destructive" | "success" | "warning"> = {
   draft: "secondary",
@@ -26,12 +27,6 @@ function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
-function riskColor(score: number | null) {
-  if (score == null) return "text-muted-foreground";
-  if (score < 0.3) return "text-success";
-  if (score < 0.6) return "text-warning";
-  return "text-destructive";
-}
 
 export function DashboardPage() {
   const { data: projects = [] } = useProjects();
@@ -135,7 +130,7 @@ export function DashboardPage() {
                       <p className="text-xs text-muted-foreground">
                         Risk:{" "}
                         <span className={riskColor(e.risk_score)}>
-                          {e.risk_score != null ? e.risk_score.toFixed(2) : "—"}
+                          {e.risk_score != null ? `${Math.round(e.risk_score)}/100` : "—"}
                         </span>
                       </p>
                     </div>

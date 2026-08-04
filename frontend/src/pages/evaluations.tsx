@@ -2,7 +2,6 @@ import {
   AlertTriangle,
   CheckCircle2,
   Clock,
-  Database,
   FileText,
   FlaskConical,
   Gauge,
@@ -27,6 +26,7 @@ import { PipelineStepper } from "@/components/ui/pipeline-stepper";
 import { useEvaluations, useCreateEvaluation, useRunEvaluation } from "@/hooks/use-evaluations";
 import { useProjects } from "@/hooks/use-projects";
 import type { Evaluation, EvaluationStatus } from "@/types/api";
+import { riskColor, riskLabel, renderMarkdown } from "@/lib/utils";
 
 const STATUS_CONFIG: Record<
   EvaluationStatus,
@@ -38,28 +38,13 @@ const STATUS_CONFIG: Record<
   failed: { variant: "destructive", icon: XCircle, label: "Failed" },
 };
 
-function riskColor(score: number | null) {
-  if (score == null) return "text-muted-foreground";
-  if (score < 0.3) return "text-success";
-  if (score < 0.6) return "text-warning";
-  return "text-destructive";
-}
-
-function riskLabel(score: number | null) {
-  if (score == null) return "Not scored";
-  if (score < 0.3) return "Low Risk";
-  if (score < 0.6) return "Medium Risk";
-  return "High Risk";
-}
-
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
 const PIPELINE_STEPS = [
-  { label: "Prompt Security", icon: <ShieldCheck className="h-3.5 w-3.5" /> },
-  { label: "Dataset Check", icon: <Database className="h-3.5 w-3.5" /> },
-  { label: "Model Eval", icon: <AlertTriangle className="h-3.5 w-3.5" /> },
+  { label: "Scanning", icon: <ShieldCheck className="h-3.5 w-3.5" /> },
+  { label: "AI Analysis", icon: <AlertTriangle className="h-3.5 w-3.5" /> },
   { label: "Risk Score", icon: <Gauge className="h-3.5 w-3.5" /> },
   { label: "Report", icon: <FileText className="h-3.5 w-3.5" /> },
 ];
@@ -79,50 +64,180 @@ function useSimulatedStep(isRunning: boolean) {
   return step;
 }
 
-const NODE_LABELS: Record<string, { label: string; icon: typeof ShieldCheck }> = {
-  prompt_security: { label: "Prompt Security", icon: ShieldCheck },
-  dataset_validation: { label: "Dataset Validation", icon: CheckCircle2 },
-  model_evaluation: { label: "Model Evaluation", icon: AlertTriangle },
+const SEVERITY_BADGE: Record<string, "destructive" | "warning" | "secondary" | "default"> = {
+  critical: "destructive",
+  high: "warning",
+  medium: "secondary",
+  low: "default",
 };
 
-function NodeResultCard({ nodeKey, data }: { nodeKey: string; data: unknown }) {
-  const config = NODE_LABELS[nodeKey] || { label: nodeKey, icon: CheckCircle2 };
-  const Icon = config.icon;
+const CONFIDENCE_STYLE: Record<string, { label: string; class: string }> = {
+  verified: { label: "Verified", class: "bg-success/10 text-success border-success/30" },
+  observed: { label: "Observed", class: "bg-warning/10 text-warning border-warning/30" },
+  "potential-risk": { label: "Potential Risk", class: "bg-muted text-muted-foreground border-border" },
+};
 
-  if (!data || typeof data !== "object") return null;
+interface ScannerFinding {
+  source: string;
+  severity: string;
+  category: string;
+  description: string;
+  recommendation: string;
+  confidence?: string;
+  file?: string;
+  line?: number;
+  evidence?: string;
+}
 
-  const entries = Object.entries(data as Record<string, unknown>);
+function ConfidenceBadge({ confidence }: { confidence?: string }) {
+  const style = CONFIDENCE_STYLE[confidence ?? "observed"] ?? CONFIDENCE_STYLE["observed"];
+  return (
+    <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border ${style!.class}`}>
+      {style!.label}
+    </span>
+  );
+}
+
+function FindingRow({ f }: { f: ScannerFinding }) {
+  return (
+    <div className="rounded-md border p-3 space-y-1.5">
+      <div className="flex items-center gap-2 flex-wrap">
+        <Badge variant={SEVERITY_BADGE[f.severity] || "default"} className="text-[10px] uppercase">
+          {f.severity}
+        </Badge>
+        <ConfidenceBadge confidence={f.confidence} />
+        <span className="text-xs font-medium text-foreground">{f.description}</span>
+      </div>
+      {f.file && (
+        <p className="text-xs text-muted-foreground font-mono">
+          {f.file}{f.line != null ? `:${f.line}` : ""}
+        </p>
+      )}
+      {f.evidence && (
+        <pre className="text-[11px] bg-muted p-2 rounded overflow-x-auto font-mono">{f.evidence}</pre>
+      )}
+      <div className="flex items-center gap-2 text-[11px]">
+        <span className="text-muted-foreground">Source: {f.source}</span>
+        <span className="text-muted-foreground">·</span>
+        <span className="text-muted-foreground">{f.recommendation}</span>
+      </div>
+    </div>
+  );
+}
+
+function ScannerResultsCard({ data }: { data: Record<string, unknown> }) {
+  const findings = (data.findings || []) as ScannerFinding[];
+  const summary = data.summary as Record<string, number> | undefined;
+  const scannersUsed = (data.scanners_used || []) as string[];
 
   return (
     <div className="rounded-lg border p-4 space-y-3">
       <div className="flex items-center gap-2">
-        <Icon className="h-4 w-4 text-primary" />
-        <h4 className="text-sm font-semibold">{config.label}</h4>
+        <ShieldCheck className="h-4 w-4 text-primary" />
+        <h4 className="text-sm font-semibold">Scanner Findings</h4>
       </div>
-      <div className="space-y-2">
-        {entries.map(([key, value]) => (
-          <div key={key} className="text-sm">
-            <span className="font-medium text-muted-foreground capitalize">{key.replace(/_/g, " ")}:</span>{" "}
-            {typeof value === "string" ? (
-              <span className="text-foreground">{value}</span>
-            ) : typeof value === "number" ? (
-              <span className={`font-mono font-medium ${riskColor(value)}`}>{value}</span>
-            ) : Array.isArray(value) ? (
-              <ul className="mt-1 ml-4 list-disc space-y-0.5">
-                {(value as unknown[]).slice(0, 10).map((item, i) => (
-                  <li key={i} className="text-foreground text-xs">
-                    {typeof item === "string" ? item : JSON.stringify(item)}
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <pre className="mt-1 text-xs bg-muted p-2 rounded overflow-x-auto max-h-32">
-                {JSON.stringify(value, null, 2)}
-              </pre>
-            )}
-          </div>
-        ))}
+      {summary && (
+        <div className="flex gap-3 text-xs">
+          {(summary.critical ?? 0) > 0 && <Badge variant="destructive">{summary.critical} critical</Badge>}
+          {(summary.high ?? 0) > 0 && <Badge variant="warning">{summary.high} high</Badge>}
+          {(summary.medium ?? 0) > 0 && <Badge variant="secondary">{summary.medium} medium</Badge>}
+          {(summary.low ?? 0) > 0 && <Badge variant="default">{summary.low} low</Badge>}
+          <span className="text-muted-foreground ml-auto">Scanned by: {scannersUsed.join(", ")}</span>
+        </div>
+      )}
+      {findings.length === 0 ? (
+        <p className="text-sm text-muted-foreground">No findings detected.</p>
+      ) : (
+        <div className="space-y-2 max-h-96 overflow-y-auto">
+          {findings.map((f, i) => <FindingRow key={i} f={f} />)}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function RiskBreakdownCard({ data }: { data: Record<string, unknown> }) {
+  const base = data.base_score as number | undefined;
+  const adj = data.adjustment as number | undefined;
+  const final_ = data.adjusted_score as number | undefined;
+  const reason = data.adjustment_reason as string | undefined;
+  const level = data.risk_level as string | undefined;
+
+  return (
+    <div className="rounded-lg border p-4 space-y-3">
+      <div className="flex items-center gap-2">
+        <Gauge className="h-4 w-4 text-primary" />
+        <h4 className="text-sm font-semibold">Risk Breakdown</h4>
       </div>
+      <div className="grid grid-cols-3 gap-4 text-center">
+        <div>
+          <p className="text-xs text-muted-foreground">Base Score</p>
+          <p className="text-xl font-bold font-mono">{base ?? "—"}</p>
+        </div>
+        <div>
+          <p className="text-xs text-muted-foreground">Adjustment</p>
+          <p className="text-xl font-bold font-mono">{adj != null ? `${adj >= 0 ? "+" : ""}${adj}` : "—"}</p>
+        </div>
+        <div>
+          <p className="text-xs text-muted-foreground">Final</p>
+          <p className={`text-xl font-bold font-mono ${riskColor(final_ ?? null)}`}>{final_ ?? "—"}</p>
+        </div>
+      </div>
+      {level && <Badge variant={SEVERITY_BADGE[level] || "secondary"} className="uppercase">{level} risk</Badge>}
+      {reason && <p className="text-xs text-muted-foreground italic">{reason}</p>}
+    </div>
+  );
+}
+
+function LlmAnalysisCard({ data }: { data: Record<string, unknown> }) {
+  const supplementary = (data.supplementary_findings || []) as Array<{
+    severity: string;
+    category: string;
+    description: string;
+    recommendation: string;
+    reasoning: string;
+  }>;
+  const summary = data.summary as string | undefined;
+
+  return (
+    <div className="rounded-lg border p-4 space-y-3">
+      <div className="flex items-center gap-2">
+        <AlertTriangle className="h-4 w-4 text-primary" />
+        <h4 className="text-sm font-semibold">AI Analysis</h4>
+      </div>
+      {summary && <p className="text-sm text-foreground">{summary}</p>}
+      {supplementary.length > 0 && (
+        <div className="space-y-2">
+          <p className="text-xs font-medium text-muted-foreground">Supplementary Findings (AI-assessed)</p>
+          {supplementary.map((f, i) => (
+            <div key={i} className="rounded-md border border-dashed p-3 space-y-1.5">
+              <div className="flex items-center gap-2 flex-wrap">
+                <Badge variant={SEVERITY_BADGE[f.severity] || "default"} className="text-[10px] uppercase">
+                  {f.severity}
+                </Badge>
+                <ConfidenceBadge confidence="potential-risk" />
+                <span className="text-xs font-medium">{f.description}</span>
+              </div>
+              <p className="text-[11px] text-muted-foreground italic">{f.reasoning}</p>
+              <p className="text-[11px] text-muted-foreground">{f.recommendation}</p>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function NodeResults({ nodeResults }: { nodeResults: Record<string, unknown> }) {
+  const scanners = nodeResults.scanners as Record<string, unknown> | undefined;
+  const llmAnalysis = nodeResults.llm_analysis as Record<string, unknown> | undefined;
+  const riskBreakdown = nodeResults.risk_breakdown as Record<string, unknown> | undefined;
+
+  return (
+    <div className="space-y-3">
+      {scanners && <ScannerResultsCard data={scanners} />}
+      {llmAnalysis && <LlmAnalysisCard data={llmAnalysis} />}
+      {riskBreakdown && <RiskBreakdownCard data={riskBreakdown} />}
     </div>
   );
 }
@@ -189,7 +304,7 @@ function EvaluationCard({
           <div className="flex items-center gap-3 shrink-0">
             {e.risk_score != null && (
               <div className="text-right hidden sm:block">
-                <p className={`text-lg font-bold font-mono ${riskColor(e.risk_score)}`}>{e.risk_score.toFixed(2)}</p>
+                <p className={`text-lg font-bold font-mono ${riskColor(e.risk_score)}`}>{e.risk_score.toFixed(0)}</p>
                 <p className={`text-[10px] font-medium ${riskColor(e.risk_score)}`}>{riskLabel(e.risk_score)}</p>
               </div>
             )}
@@ -237,7 +352,7 @@ function EvaluationDetail({ evaluation, onClose }: { evaluation: Evaluation; onC
               <div>
                 <p className="text-xs text-muted-foreground font-medium">Risk Score</p>
                 <p className={`text-3xl font-bold font-mono ${riskColor(evaluation.risk_score)}`}>
-                  {evaluation.risk_score.toFixed(2)}
+                  {evaluation.risk_score.toFixed(0)}
                 </p>
               </div>
               <div>
@@ -273,11 +388,7 @@ function EvaluationDetail({ evaluation, onClose }: { evaluation: Evaluation; onC
               <Separator />
               <div>
                 <h3 className="text-sm font-semibold mb-3">Pipeline Results</h3>
-                <div className="space-y-3">
-                  {Object.entries(nodeResults).map(([key, value]) => (
-                    <NodeResultCard key={key} nodeKey={key} data={value} />
-                  ))}
-                </div>
+                <NodeResults nodeResults={nodeResults} />
               </div>
             </>
           )}
@@ -286,10 +397,11 @@ function EvaluationDetail({ evaluation, onClose }: { evaluation: Evaluation; onC
             <>
               <Separator />
               <div>
-                <h3 className="text-sm font-semibold mb-2">Report Summary</h3>
-                <div className="text-sm text-foreground whitespace-pre-wrap bg-muted/30 p-4 rounded-lg">
-                  {evaluation.summary}
-                </div>
+                <h3 className="text-sm font-semibold mb-2">Governance Report</h3>
+                <div
+                  className="text-sm text-foreground bg-muted/30 p-4 rounded-lg prose-sm max-h-[60vh] overflow-y-auto"
+                  dangerouslySetInnerHTML={{ __html: renderMarkdown(evaluation.summary) }}
+                />
               </div>
             </>
           )}
