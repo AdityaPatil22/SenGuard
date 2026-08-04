@@ -172,7 +172,7 @@ export function EvaluationsPage() {
     if (!search.trim()) return evaluations;
     const q = search.toLowerCase();
     return evaluations.filter((e) => {
-      const name = (e.project_id ? projectMap[e.project_id] : "Standalone")?.toLowerCase() ?? "";
+      const name = (e.project_id ? projectMap[e.project_id] : e.dataset_id ? datasetMap[e.dataset_id] : "Standalone")?.toLowerCase() ?? "";
       const model = e.model_name?.toLowerCase() ?? "";
       return name.includes(q) || model.includes(q);
     });
@@ -278,7 +278,7 @@ export function EvaluationsPage() {
                   <EvaluationCard
                     key={e.id}
                     evaluation={e}
-                    projectName={e.project_id ? (projectMap[e.project_id] || "Unknown Project") : "Standalone Evaluation"}
+                    projectName={e.project_id ? (projectMap[e.project_id] || "Unknown Project") : e.dataset_id ? (datasetMap[e.dataset_id] || e.dataset_id) : "Standalone Evaluation"}
                     isRunning={isRunning}
                     onRun={(ev) => handleRun(e.id, ev)}
                     onClick={() => navigate(`/evaluations/${e.id}`)}

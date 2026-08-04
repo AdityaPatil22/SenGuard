@@ -96,6 +96,8 @@ class ReportService:
 def _serialize(report: Report) -> dict:
     evaluation = report.evaluation
     project = evaluation.project if evaluation and evaluation.project_id else None
+    dataset = evaluation.dataset if evaluation and evaluation.dataset_id else None
+    name = project.name if project else dataset.name if dataset else None
     return {
         "id": str(report.id),
         "content": report.content,
@@ -104,7 +106,7 @@ def _serialize(report: Report) -> dict:
         "evaluation_id": str(report.evaluation_id),
         "reviewer_id": str(report.reviewer_id) if report.reviewer_id else None,
         "project_id": str(evaluation.project_id) if evaluation and evaluation.project_id else None,
-        "project_name": project.name if project else None,
+        "project_name": name,
         "risk_score": evaluation.risk_score if evaluation else None,
         "created_at": report.created_at.isoformat(),
         "updated_at": report.updated_at.isoformat(),
