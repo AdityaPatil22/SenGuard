@@ -76,7 +76,7 @@ export function DatasetsPage() {
   function handleCreate(e: FormEvent) {
     e.preventDefault();
     createDataset.mutate(
-      { name, project_id: projectId, description: description || undefined, file: file ?? undefined },
+      { name, project_id: projectId || undefined, description: description || undefined, file: file ?? undefined },
       {
         onSuccess: () => {
           setCreateOpen(false);
@@ -180,7 +180,7 @@ export function DatasetsPage() {
                     <TableRow key={d.id}>
                       <TableCell className="font-medium">{d.name}</TableCell>
                       <TableCell className="text-muted-foreground">
-                        {projectMap[d.project_id] ?? d.project_id.slice(0, 8)}
+                        {d.project_id ? (projectMap[d.project_id] ?? d.project_id.slice(0, 8)) : "—"}
                       </TableCell>
                       <TableCell className="hidden md:table-cell text-muted-foreground max-w-xs truncate">
                         {d.description ?? "—"}
@@ -213,7 +213,7 @@ export function DatasetsPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Upload Dataset</DialogTitle>
-            <DialogDescription>Add an evaluation dataset to a project.</DialogDescription>
+            <DialogDescription>Upload an evaluation dataset. Optionally assign it to a project.</DialogDescription>
           </DialogHeader>
           <form onSubmit={handleCreate} className="space-y-4 mt-4">
             <div className="space-y-2">
@@ -227,10 +227,10 @@ export function DatasetsPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label>Project</Label>
+              <Label>Project (optional)</Label>
               <Select value={projectId} onValueChange={(v) => setProjectId(v ?? "")}>
                 <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select a project">
+                  <SelectValue placeholder="No project — standalone dataset">
                     {(value: string) => value ? projectMap[value] ?? value : null}
                   </SelectValue>
                 </SelectTrigger>
@@ -308,7 +308,7 @@ export function DatasetsPage() {
               <Button type="button" variant="ghost" onClick={() => setCreateOpen(false)}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={createDataset.isPending || !projectId || !file} className="gap-2">
+              <Button type="submit" disabled={createDataset.isPending || !file} className="gap-2">
                 <Upload className="h-4 w-4" />
                 {createDataset.isPending ? "Uploading..." : "Upload"}
               </Button>

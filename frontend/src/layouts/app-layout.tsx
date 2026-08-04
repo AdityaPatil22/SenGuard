@@ -168,7 +168,7 @@ export function AppLayout() {
 
   return (
     <div className="flex h-screen">
-      <aside className="hidden w-56 flex-col border-r border-sidebar-border bg-sidebar-background md:flex">
+      <aside className="hidden w-64 flex-col border-r border-sidebar-border bg-sidebar-background md:flex">
         <div className="flex h-14 items-center gap-2.5 px-4">
           <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary">
             <Shield className="h-4 w-4 text-primary-foreground" />

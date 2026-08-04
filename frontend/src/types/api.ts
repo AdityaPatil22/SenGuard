@@ -52,14 +52,16 @@ export interface Evaluation {
   model_name: string | null;
   node_results: Record<string, unknown> | null;
   error_message: string | null;
-  project_id: string;
+  project_id: string | null;
+  dataset_id: string | null;
   reviewer_id: string | null;
   created_at: string;
   updated_at: string;
 }
 
 export interface CreateEvaluationRequest {
-  project_id: string;
+  project_id?: string;
+  dataset_id?: string;
   model_name?: string;
 }
 
@@ -83,14 +85,14 @@ export interface Dataset {
   description: string | null;
   file_path: string | null;
   record_count: number | null;
-  project_id: string;
+  project_id: string | null;
   created_at: string;
   updated_at: string;
 }
 
 export interface CreateDatasetRequest {
   name: string;
-  project_id: string;
+  project_id?: string;
   description?: string;
 }
 

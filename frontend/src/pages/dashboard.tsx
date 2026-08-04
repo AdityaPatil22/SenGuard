@@ -47,7 +47,7 @@ export function DashboardPage() {
   const { data: reports = [] } = useReports();
 
   const projectMap = new Map(projects.map((p) => [p.id, p.name]));
-  const projectName = (id: string) => projectMap.get(id) ?? "Unknown project";
+  const projectName = (id: string | null) => id ? (projectMap.get(id) ?? "Unknown project") : "Standalone";
 
   const scoredEvals = evaluations.filter((e) => e.risk_score != null);
   const avgRisk =

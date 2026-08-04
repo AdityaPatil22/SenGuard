@@ -9,7 +9,7 @@ export function useDatasets(projectId?: string) {
 export function useCreateDataset() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (body: { name: string; project_id: string; description?: string; file?: File }) => createDataset(body),
+    mutationFn: (body: { name: string; project_id?: string; description?: string; file?: File }) => createDataset(body),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["datasets"] }),
   });
 }

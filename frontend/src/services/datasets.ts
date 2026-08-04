@@ -12,10 +12,10 @@ export async function getDataset(id: string) {
   return data.data;
 }
 
-export async function createDataset(body: { name: string; project_id: string; description?: string; file?: File }) {
+export async function createDataset(body: { name: string; project_id?: string; description?: string; file?: File }) {
   const form = new FormData();
   form.append("name", body.name);
-  form.append("project_id", body.project_id);
+  if (body.project_id) form.append("project_id", body.project_id);
   if (body.description) form.append("description", body.description);
   if (body.file) form.append("file", body.file);
   const { data } = await api.post<ApiResponse<Dataset>>("/datasets", form, {

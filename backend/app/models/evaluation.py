@@ -11,6 +11,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.base import Base, TimestampMixin, UUIDMixin
 
 if TYPE_CHECKING:
+    from app.models.dataset import Dataset
     from app.models.project import Project
     from app.models.report import Report
     from app.models.user import User
@@ -33,8 +34,11 @@ class Evaluation(Base, UUIDMixin, TimestampMixin):
     node_results: Mapped[dict | None] = mapped_column(JSONB)
     error_message: Mapped[str | None] = mapped_column(Text)
 
-    project_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
-    project: Mapped[Project] = relationship(back_populates="evaluations")
+    project_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("projects.id", ondelete="SET NULL"), nullable=True)
+    project: Mapped[Project | None] = relationship(back_populates="evaluations")
+
+    dataset_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("datasets.id", ondelete="SET NULL"), nullable=True)
+    dataset: Mapped[Dataset | None] = relationship()
 
     reviewer_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"))
     reviewer: Mapped[User | None] = relationship(back_populates="reviewed_evaluations", foreign_keys=[reviewer_id])

@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import BadRequestError, NotFoundError
 from app.langgraph.graph import get_evaluation_workflow
+from app.models.dataset import Dataset
 from app.models.evaluation import Evaluation, EvaluationStatus
 from app.models.project import Project
 from app.repositories.dataset import DatasetRepository
@@ -21,15 +22,27 @@ class EvaluationService:
         self.db = db
         self.repo = EvaluationRepository(db)
 
-    async def create(self, project_id: uuid.UUID, model_name: str | None, owner_id: uuid.UUID) -> Evaluation:
-        project = await self.db.get(Project, project_id)
-        if not project:
-            raise NotFoundError("Project not found")
-        if project.owner_id != owner_id:
-            raise BadRequestError("Not your project")
+    async def create(
+        self,
+        model_name: str | None,
+        owner_id: uuid.UUID,
+        project_id: uuid.UUID | None = None,
+        dataset_id: uuid.UUID | None = None,
+    ) -> Evaluation:
+        if project_id:
+            project = await self.db.get(Project, project_id)
+            if not project:
+                raise NotFoundError("Project not found")
+            if project.owner_id != owner_id:
+                raise BadRequestError("Not your project")
+        if dataset_id:
+            dataset = await self.db.get(Dataset, dataset_id)
+            if not dataset:
+                raise NotFoundError("Dataset not found")
 
         evaluation = Evaluation(
             project_id=project_id,
+            dataset_id=dataset_id,
             model_name=model_name,
             status=EvaluationStatus.PENDING,
         )
@@ -54,9 +67,24 @@ class EvaluationService:
             return await self.repo.get_by_status(status, skip, limit)
         return await self.repo.get_all(skip, limit)
 
-    async def _load_dataset_samples(self, project_id: uuid.UUID, max_rows: int = 50) -> list[str]:
-        dataset_repo = DatasetRepository(self.db)
-        datasets = await dataset_repo.get_by_project(project_id, skip=0, limit=10)
+    async def _load_dataset_samples(
+        self,
+        project_id: uuid.UUID | None,
+        dataset_id: uuid.UUID | None = None,
+        max_rows: int = 50,
+    ) -> list[str]:
+        datasets: list[Dataset] = []
+        if dataset_id:
+            ds = await self.db.get(Dataset, dataset_id)
+            if ds:
+                datasets = [ds]
+        elif project_id:
+            dataset_repo = DatasetRepository(self.db)
+            datasets = await dataset_repo.get_by_project(project_id, skip=0, limit=10)
+
+        if not datasets:
+            return []
+
         samples: list[str] = []
         storage = get_storage_from_settings()
         for ds in datasets:
@@ -81,8 +109,8 @@ class EvaluationService:
         await self.repo.update(evaluation, {"status": EvaluationStatus.RUNNING})
 
         try:
-            project = await self.db.get(Project, evaluation.project_id)
-            dataset_samples = await self._load_dataset_samples(evaluation.project_id)
+            project = await self.db.get(Project, evaluation.project_id) if evaluation.project_id else None
+            dataset_samples = await self._load_dataset_samples(evaluation.project_id, evaluation.dataset_id)
 
             repo_files: list[dict] = []
             repo_path: str | None = None

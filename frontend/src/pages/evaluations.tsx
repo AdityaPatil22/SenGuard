@@ -21,6 +21,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PipelineStepper } from "@/components/ui/pipeline-stepper";
+import { useDatasets } from "@/hooks/use-datasets";
 import { useEvaluations, useCreateEvaluation, useRunEvaluation } from "@/hooks/use-evaluations";
 import { useProjects } from "@/hooks/use-projects";
 import type { Evaluation, EvaluationStatus } from "@/types/api";
@@ -152,22 +153,26 @@ function EvaluationCard({
 export function EvaluationsPage() {
   const { data: evaluations = [], isLoading } = useEvaluations();
   const { data: projects = [] } = useProjects();
+  const { data: datasets = [] } = useDatasets();
   const createEvaluation = useCreateEvaluation();
   const runEvaluation = useRunEvaluation();
   const navigate = useNavigate();
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [evalType, setEvalType] = useState<"project" | "dataset">("project");
   const [projectId, setProjectId] = useState("");
+  const [datasetId, setDatasetId] = useState("");
   const [modelName, setModelName] = useState("");
   const [runningId, setRunningId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
 
   const projectMap = Object.fromEntries(projects.map((p) => [p.id, p.name]));
+  const datasetMap = Object.fromEntries(datasets.map((d) => [d.id, d.name]));
 
   const filtered = useMemo(() => {
     if (!search.trim()) return evaluations;
     const q = search.toLowerCase();
     return evaluations.filter((e) => {
-      const name = projectMap[e.project_id]?.toLowerCase() ?? "";
+      const name = (e.project_id ? projectMap[e.project_id] : "Standalone")?.toLowerCase() ?? "";
       const model = e.model_name?.toLowerCase() ?? "";
       return name.includes(q) || model.includes(q);
     });
@@ -176,11 +181,13 @@ export function EvaluationsPage() {
   function handleCreate(e: FormEvent) {
     e.preventDefault();
     createEvaluation.mutate(
-      { project_id: projectId, model_name: modelName || undefined },
+      { project_id: projectId || undefined, dataset_id: datasetId || undefined, model_name: modelName || undefined },
       {
         onSuccess: () => {
           setDialogOpen(false);
+          setEvalType("project");
           setProjectId("");
+          setDatasetId("");
           setModelName("");
           toast.success("Evaluation created");
         },
@@ -271,7 +278,7 @@ export function EvaluationsPage() {
                   <EvaluationCard
                     key={e.id}
                     evaluation={e}
-                    projectName={projectMap[e.project_id] || "Unknown Project"}
+                    projectName={e.project_id ? (projectMap[e.project_id] || "Unknown Project") : "Standalone Evaluation"}
                     isRunning={isRunning}
                     onRun={(ev) => handleRun(e.id, ev)}
                     onClick={() => navigate(`/evaluations/${e.id}`)}
@@ -288,48 +295,87 @@ export function EvaluationsPage() {
           <DialogHeader>
             <DialogTitle>New Evaluation</DialogTitle>
             <DialogDescription>
-              Select a project to run through the AI governance pipeline. The evaluation checks for security risks,
-              data quality, and model reliability.
+              Run an evaluation through the AI governance pipeline. Optionally select a project, or evaluate standalone.
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleCreate} className="space-y-4 mt-4">
             <div className="space-y-2">
-              <Label>Project</Label>
-              <Select value={projectId} onValueChange={(v) => setProjectId(v ?? "")} required>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Choose a project to evaluate">
-                    {(value: string) => value ? projectMap[value] ?? value : null}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {projects.map((p) => (
-                    <SelectItem key={p.id} value={p.id} label={p.name}>
-                      {p.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {projects.length === 0 && (
-                <p className="text-xs text-muted-foreground">No projects found. Create a project first.</p>
-              )}
+              <Label>Evaluate</Label>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant={evalType === "project" ? "default" : "outline"}
+                  size="sm"
+                  className="flex-1"
+                  onClick={() => { setEvalType("project"); setDatasetId(""); }}
+                >
+                  Project
+                </Button>
+                <Button
+                  type="button"
+                  variant={evalType === "dataset" ? "default" : "outline"}
+                  size="sm"
+                  className="flex-1"
+                  onClick={() => { setEvalType("dataset"); setProjectId(""); }}
+                >
+                  Dataset
+                </Button>
+              </div>
             </div>
+            {evalType === "project" ? (
+              <div className="space-y-2">
+                <Label>Project</Label>
+                <Select value={projectId} onValueChange={(v) => setProjectId(v ?? "")}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select a project">
+                      {(value: string) => value ? projectMap[value] ?? value : null}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {projects.map((p) => (
+                      <SelectItem key={p.id} value={p.id} label={p.name}>
+                        {p.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <Label>Dataset</Label>
+                <Select value={datasetId} onValueChange={(v) => setDatasetId(v ?? "")}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select a dataset">
+                      {(value: string) => value ? datasetMap[value] ?? value : null}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {datasets.map((d) => (
+                      <SelectItem key={d.id} value={d.id} label={d.name}>
+                        {d.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <div className="space-y-2">
-              <Label htmlFor="eval-model">Model name (optional)</Label>
+              <Label htmlFor="eval-model">Target model (optional)</Label>
               <Input
                 id="eval-model"
                 value={modelName}
                 onChange={(e) => setModelName(e.target.value)}
-                placeholder="gemini-2.5-flash"
+                placeholder="e.g. gemini-2.5-flash, gpt-4o"
               />
               <p className="text-xs text-muted-foreground">
-                The LLM model your project uses. Helps the evaluator assess model-specific risks.
+                Which LLM does the application being evaluated use? Helps flag model-specific risks.
               </p>
             </div>
             <div className="flex justify-end gap-2">
               <Button type="button" variant="ghost" onClick={() => setDialogOpen(false)}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={createEvaluation.isPending}>
+              <Button type="submit" disabled={createEvaluation.isPending || (evalType === "project" ? !projectId : !datasetId)}>
                 {createEvaluation.isPending ? "Creating..." : "Create Evaluation"}
               </Button>
             </div>

@@ -22,7 +22,8 @@ def _serialize(evaluation) -> dict:
         "model_name": evaluation.model_name,
         "node_results": evaluation.node_results,
         "error_message": evaluation.error_message,
-        "project_id": str(evaluation.project_id),
+        "project_id": str(evaluation.project_id) if evaluation.project_id else None,
+        "dataset_id": str(evaluation.dataset_id) if evaluation.dataset_id else None,
         "created_at": evaluation.created_at.isoformat(),
         "updated_at": evaluation.updated_at.isoformat(),
     }
@@ -35,7 +36,12 @@ async def create_evaluation(
     current_user: User = Depends(get_current_user),
 ):
     service = EvaluationService(db)
-    evaluation = await service.create(uuid.UUID(data.project_id), data.model_name, current_user.id)
+    evaluation = await service.create(
+        data.model_name,
+        current_user.id,
+        project_id=uuid.UUID(data.project_id) if data.project_id else None,
+        dataset_id=uuid.UUID(data.dataset_id) if data.dataset_id else None,
+    )
     return success(data=_serialize(evaluation), message="Evaluation created")
 
 
