@@ -33,7 +33,7 @@ class Report(Base, UUIDMixin, TimestampMixin):
     rejection_comment: Mapped[str | None] = mapped_column(Text)
 
     evaluation_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("evaluations.id"), unique=True, nullable=False
+        UUID(as_uuid=True), ForeignKey("evaluations.id", ondelete="CASCADE"), unique=True, nullable=False
     )
     evaluation: Mapped[Evaluation] = relationship(back_populates="report")
 

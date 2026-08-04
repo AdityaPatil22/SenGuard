@@ -33,10 +33,10 @@ class Evaluation(Base, UUIDMixin, TimestampMixin):
     node_results: Mapped[dict | None] = mapped_column(JSONB)
     error_message: Mapped[str | None] = mapped_column(Text)
 
-    project_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("projects.id"), nullable=False)
+    project_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
     project: Mapped[Project] = relationship(back_populates="evaluations")
 
     reviewer_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"))
     reviewer: Mapped[User | None] = relationship(back_populates="reviewed_evaluations", foreign_keys=[reviewer_id])
 
-    report: Mapped[Report | None] = relationship(back_populates="evaluation")
+    report: Mapped[Report | None] = relationship(back_populates="evaluation", cascade="all, delete-orphan", passive_deletes=True)

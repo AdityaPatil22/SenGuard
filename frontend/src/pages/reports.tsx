@@ -1,18 +1,19 @@
-import { CheckCircle, Download, Eye, FileText, XCircle } from "lucide-react";
-import { useState, type FormEvent } from "react";
+import { CheckCircle, FileText, Search, XCircle } from "lucide-react";
+import { useMemo, useState, type FormEvent } from "react";
+import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { useReports, useApproveReport, useRejectReport } from "@/hooks/use-reports";
-import { exportReport } from "@/services/reports";
 import type { Report, ReportStatus } from "@/types/api";
-import { riskColor, riskLabel, renderMarkdown } from "@/lib/utils";
+import { riskColor, riskLabel } from "@/lib/utils";
 
 const STATUS_VARIANT: Record<ReportStatus, "default" | "secondary" | "destructive" | "success" | "warning"> = {
   draft: "secondary",
@@ -34,73 +35,34 @@ const STATUS_LABEL: Record<ReportStatus, string> = {
   archived: "Archived",
 };
 
-
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
-function ReportViewModal({ report, onClose }: { report: Report; onClose: () => void }) {
-  return (
-    <Dialog open onOpenChange={() => onClose()}>
-      <DialogContent className="max-w-3xl">
-        <DialogHeader>
-          <DialogTitle>{report.project_name || "Report"}</DialogTitle>
-          <DialogDescription>
-            Generated on {formatDate(report.created_at)}
-            {report.risk_score != null && ` · ${riskLabel(report.risk_score)}`}
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="flex items-center justify-between mt-3">
-          <div className="flex items-center gap-2">
-            <Badge variant={STATUS_VARIANT[report.status]}>{STATUS_LABEL[report.status]}</Badge>
-            {report.risk_score != null && (
-              <span className={`font-mono text-sm font-bold ${riskColor(report.risk_score)}`}>
-                {report.risk_score.toFixed(0)}
-              </span>
-            )}
-          </div>
-          <Button variant="outline" size="sm" className="gap-2" onClick={() => exportReport(report.id)}>
-            <Download className="h-3.5 w-3.5" />
-            Export JSON
-          </Button>
-        </div>
-
-        <Separator className="my-3" />
-
-        {report.status === "rejected" && report.rejection_comment && (
-          <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 mb-3">
-            <p className="text-sm font-medium text-destructive mb-1">Rejection Reason</p>
-            <p className="text-sm">{report.rejection_comment}</p>
-          </div>
-        )}
-
-        {report.content ? (
-          <div
-            className="text-sm text-foreground leading-relaxed max-h-[60vh] overflow-y-auto"
-            dangerouslySetInnerHTML={{ __html: renderMarkdown(report.content) }}
-          />
-        ) : (
-          <p className="text-sm text-muted-foreground">No report content available.</p>
-        )}
-      </DialogContent>
-    </Dialog>
-  );
-}
-
 export function ReportsPage() {
+  const navigate = useNavigate();
   const { data: reports = [], isLoading } = useReports();
   const approveReport = useApproveReport();
   const rejectReport = useRejectReport();
   const [rejectDialog, setRejectDialog] = useState<Report | null>(null);
   const [rejectComment, setRejectComment] = useState("");
   const [approvingId, setApprovingId] = useState<string | null>(null);
-  const [viewReport, setViewReport] = useState<Report | null>(null);
+  const [search, setSearch] = useState("");
+
+  const filtered = useMemo(() => {
+    if (!search.trim()) return reports;
+    const q = search.toLowerCase();
+    return reports.filter((r) => (r.project_name || "").toLowerCase().includes(q));
+  }, [reports, search]);
 
   function handleApprove(id: string, e: React.MouseEvent) {
     e.stopPropagation();
     setApprovingId(id);
-    approveReport.mutate(id, { onSettled: () => setApprovingId(null) });
+    approveReport.mutate(id, {
+      onSuccess: () => toast.success("Report approved"),
+      onError: () => toast.error("Failed to approve report"),
+      onSettled: () => setApprovingId(null),
+    });
   }
 
   function openReject(report: Report, e: React.MouseEvent) {
@@ -115,9 +77,11 @@ export function ReportsPage() {
       { id: rejectDialog.id, comment: rejectComment },
       {
         onSuccess: () => {
+          toast.success("Report rejected");
           setRejectDialog(null);
           setRejectComment("");
         },
+        onError: () => toast.error("Failed to reject report"),
       },
     );
   }
@@ -130,6 +94,18 @@ export function ReportsPage() {
           Review AI governance reports and approve or reject for compliance
         </p>
       </div>
+
+      {!isLoading && reports.length > 0 && (
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search by project name..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+      )}
 
       {isLoading ? (
         <div className="space-y-3">
@@ -161,13 +137,20 @@ export function ReportsPage() {
             </p>
           </CardContent>
         </Card>
+      ) : filtered.length === 0 ? (
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+            <Search className="h-8 w-8 text-muted-foreground mb-3" />
+            <p className="text-sm text-muted-foreground">No reports match your search.</p>
+          </CardContent>
+        </Card>
       ) : (
         <div className="space-y-2">
-          {reports.map((r) => (
+          {filtered.map((r) => (
             <Card
               key={r.id}
               className="transition-colors hover:bg-muted/30 cursor-pointer"
-              onClick={() => setViewReport(r)}
+              onClick={() => navigate(`/reports/${r.id}`)}
             >
               <CardContent className="p-4">
                 <div className="flex items-center gap-4">
@@ -213,45 +196,31 @@ export function ReportsPage() {
                         </p>
                       </div>
                     )}
-                    <div className="flex gap-1">
-                      {r.status === "in_review" && (
-                        <>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="gap-1 text-success"
-                            disabled={approvingId === r.id}
-                            onClick={(ev) => handleApprove(r.id, ev)}
-                          >
-                            <CheckCircle className="h-3.5 w-3.5" />
-                            <span className="hidden sm:inline">
-                              {approvingId === r.id ? "..." : "Approve"}
-                            </span>
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="gap-1 text-destructive"
-                            onClick={(ev) => openReject(r, ev)}
-                          >
-                            <XCircle className="h-3.5 w-3.5" />
-                            <span className="hidden sm:inline">Reject</span>
-                          </Button>
-                        </>
-                      )}
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="gap-1"
-                        onClick={(ev) => {
-                          ev.stopPropagation();
-                          setViewReport(r);
-                        }}
-                      >
-                        <Eye className="h-3.5 w-3.5" />
-                        <span className="hidden sm:inline">View</span>
-                      </Button>
-                    </div>
+                    {r.status === "in_review" && (
+                      <div className="flex gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="gap-1 text-success"
+                          disabled={approvingId === r.id}
+                          onClick={(ev) => handleApprove(r.id, ev)}
+                        >
+                          <CheckCircle className="h-3.5 w-3.5" />
+                          <span className="hidden sm:inline">
+                            {approvingId === r.id ? "..." : "Approve"}
+                          </span>
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="gap-1 text-destructive"
+                          onClick={(ev) => openReject(r, ev)}
+                        >
+                          <XCircle className="h-3.5 w-3.5" />
+                          <span className="hidden sm:inline">Reject</span>
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 </div>
               </CardContent>
@@ -259,8 +228,6 @@ export function ReportsPage() {
           ))}
         </div>
       )}
-
-      {viewReport && <ReportViewModal report={viewReport} onClose={() => setViewReport(null)} />}
 
       <Dialog
         open={!!rejectDialog}

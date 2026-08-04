@@ -1,12 +1,23 @@
-import { Database, FileUp, Plus, Trash2, Upload, X } from "lucide-react";
+import { Database, FileUp, Plus, Search, Trash2, Upload, X } from "lucide-react";
 import { useCallback, useRef, useState, type FormEvent, type DragEvent } from "react";
+import { toast } from "sonner";
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select } from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
@@ -15,6 +26,12 @@ import { useProjects } from "@/hooks/use-projects";
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+}
+
+function formatFileSize(bytes: number) {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 export function DatasetsPage() {
@@ -28,9 +45,11 @@ export function DatasetsPage() {
   const [description, setDescription] = useState("");
   const [projectId, setProjectId] = useState("");
   const [file, setFile] = useState<File | null>(null);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  const [search, setSearch] = useState("");
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
 
   const ACCEPT = ".csv,.json,.jsonl,.txt,.tsv";
 
@@ -54,26 +73,40 @@ export function DatasetsPage() {
     }
   }, [name]);
 
-  function formatFileSize(bytes: number) {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  }
-
   function handleCreate(e: FormEvent) {
     e.preventDefault();
     createDataset.mutate(
       { name, project_id: projectId, description: description || undefined, file: file ?? undefined },
-      { onSuccess: () => setCreateOpen(false) },
+      {
+        onSuccess: () => {
+          setCreateOpen(false);
+          toast.success("Dataset uploaded");
+        },
+        onError: () => toast.error("Failed to upload dataset"),
+      },
     );
   }
 
-  function handleDelete(id: string) {
-    setDeletingId(id);
-    deleteDatasetMut.mutate(id, { onSettled: () => setDeletingId(null) });
+  function handleDelete() {
+    if (!deleteTarget) return;
+    const targetName = deleteTarget.name;
+    deleteDatasetMut.mutate(deleteTarget.id, {
+      onSuccess: () => {
+        toast.success(`Deleted "${targetName}"`);
+        setDeleteTarget(null);
+      },
+      onError: () => {
+        toast.error("Failed to delete dataset");
+        setDeleteTarget(null);
+      },
+    });
   }
 
   const projectMap = Object.fromEntries(projects.map((p) => [p.id, p.name]));
+
+  const filtered = search
+    ? datasets.filter((d) => d.name.toLowerCase().includes(search.toLowerCase()))
+    : datasets;
 
   return (
     <div className="space-y-6">
@@ -113,50 +146,69 @@ export function DatasetsPage() {
           </CardContent>
         </Card>
       ) : (
-        <Card>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Project</TableHead>
-                <TableHead className="hidden md:table-cell">Description</TableHead>
-                <TableHead className="hidden sm:table-cell">Records</TableHead>
-                <TableHead className="hidden sm:table-cell">Created</TableHead>
-                <TableHead className="w-16" />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {datasets.map((d) => (
-                <TableRow key={d.id}>
-                  <TableCell className="font-medium">{d.name}</TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {projectMap[d.project_id] ?? d.project_id.slice(0, 8)}
-                  </TableCell>
-                  <TableCell className="hidden md:table-cell text-muted-foreground max-w-xs truncate">
-                    {d.description ?? "—"}
-                  </TableCell>
-                  <TableCell className="hidden sm:table-cell text-muted-foreground">{d.record_count ?? "—"}</TableCell>
-                  <TableCell className="hidden sm:table-cell text-muted-foreground">
-                    {formatDate(d.created_at)}
-                  </TableCell>
-                  <TableCell>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="text-destructive"
-                      disabled={deletingId === d.id}
-                      onClick={() => handleDelete(d.id)}
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                  </TableCell>
+        <div className="space-y-4">
+          <div className="relative max-w-sm">
+            <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Search datasets..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+          <Card>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Project</TableHead>
+                  <TableHead className="hidden md:table-cell">Description</TableHead>
+                  <TableHead className="hidden sm:table-cell">Records</TableHead>
+                  <TableHead className="hidden sm:table-cell">Created</TableHead>
+                  <TableHead className="w-16" />
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </Card>
+              </TableHeader>
+              <TableBody>
+                {filtered.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
+                      No datasets match your search.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  filtered.map((d) => (
+                    <TableRow key={d.id}>
+                      <TableCell className="font-medium">{d.name}</TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {projectMap[d.project_id] ?? d.project_id.slice(0, 8)}
+                      </TableCell>
+                      <TableCell className="hidden md:table-cell text-muted-foreground max-w-xs truncate">
+                        {d.description ?? "—"}
+                      </TableCell>
+                      <TableCell className="hidden sm:table-cell text-muted-foreground">{d.record_count ?? "—"}</TableCell>
+                      <TableCell className="hidden sm:table-cell text-muted-foreground">
+                        {formatDate(d.created_at)}
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-destructive"
+                          onClick={() => setDeleteTarget({ id: d.id, name: d.name })}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </Card>
+        </div>
       )}
 
+      {/* Create dialog */}
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent>
           <DialogHeader>
@@ -175,16 +227,18 @@ export function DatasetsPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="ds-project">Project</Label>
-              <Select id="ds-project" value={projectId} onChange={(e) => setProjectId(e.target.value)} required>
-                <option value="" disabled>
-                  Select a project
-                </option>
-                {projects.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
+              <Label>Project</Label>
+              <Select value={projectId} onValueChange={(v) => setProjectId(v ?? "")}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select a project">
+                    {(value: string) => value ? projectMap[value] ?? value : null}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {projects.map((p) => (
+                    <SelectItem key={p.id} value={p.id} label={p.name}>{p.name}</SelectItem>
+                  ))}
+                </SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
@@ -262,6 +316,24 @@ export function DatasetsPage() {
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* Delete confirmation */}
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete dataset?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete "{deleteTarget?.name}". This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction variant="destructive" onClick={handleDelete}>
+              {deleteDatasetMut.isPending ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

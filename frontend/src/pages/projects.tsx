@@ -1,10 +1,22 @@
 import { FolderKanban, Github, Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { useState, useMemo, type FormEvent } from "react";
+import { toast } from "sonner";
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -37,7 +49,10 @@ export function ProjectsPage() {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [repoUrl, setRepoUrl] = useState("");
-  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+
+  // Delete confirmation
+  const [deleteTarget, setDeleteTarget] = useState<Project | null>(null);
 
   const [showRepoPicker, setShowRepoPicker] = useState(false);
   const [repoSearch, setRepoSearch] = useState("");
@@ -50,6 +65,12 @@ export function ProjectsPage() {
       (r) => r.full_name.toLowerCase().includes(q) || r.description?.toLowerCase().includes(q),
     );
   }, [githubRepos, repoSearch]);
+
+  const filteredProjects = useMemo(() => {
+    if (!searchQuery) return projects;
+    const q = searchQuery.toLowerCase();
+    return projects.filter((p) => p.name.toLowerCase().includes(q));
+  }, [projects, searchQuery]);
 
   function openCreate() {
     setName("");
@@ -79,7 +100,13 @@ export function ProjectsPage() {
     e.preventDefault();
     createProject.mutate(
       { name, description: description || undefined, repo_url: repoUrl || undefined },
-      { onSuccess: () => setCreateOpen(false) },
+      {
+        onSuccess: () => {
+          setCreateOpen(false);
+          toast.success("Project created");
+        },
+        onError: () => toast.error("Failed to create project"),
+      },
     );
   }
 
@@ -88,13 +115,28 @@ export function ProjectsPage() {
     if (!editProject) return;
     updateProjectMut.mutate(
       { id: editProject.id, body: { name, description: description || undefined, repo_url: repoUrl || undefined } },
-      { onSuccess: () => setEditProject(null) },
+      {
+        onSuccess: () => {
+          setEditProject(null);
+          toast.success("Project updated");
+        },
+        onError: () => toast.error("Failed to update project"),
+      },
     );
   }
 
-  function handleDelete(id: string) {
-    setDeletingId(id);
-    deleteProjectMut.mutate(id, { onSettled: () => setDeletingId(null) });
+  function handleDelete() {
+    if (!deleteTarget) return;
+    deleteProjectMut.mutate(deleteTarget.id, {
+      onSuccess: () => {
+        setDeleteTarget(null);
+        toast.success("Project deleted");
+      },
+      onError: () => {
+        setDeleteTarget(null);
+        toast.error("Failed to delete project");
+      },
+    });
   }
 
   return (
@@ -110,6 +152,19 @@ export function ProjectsPage() {
         </Button>
       </div>
 
+      {/* Search */}
+      {!isLoading && projects.length > 0 && (
+        <div className="relative max-w-sm">
+          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search projects..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+      )}
+
       {isLoading ? (
         <Card>
           <CardContent className="p-6 space-y-3">
@@ -120,18 +175,38 @@ export function ProjectsPage() {
         </Card>
       ) : projects.length === 0 ? (
         <Card>
-          <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-            <div className="h-12 w-12 rounded-xl bg-muted flex items-center justify-center mb-4">
-              <FolderKanban className="h-6 w-6 text-muted-foreground" />
-            </div>
-            <h3 className="text-sm font-semibold mb-1">No projects yet</h3>
-            <p className="text-sm text-muted-foreground mb-4 max-w-sm">
-              Import a GitHub repository to get started with AI governance evaluation.
-            </p>
-            <Button size="sm" onClick={openCreate} className="gap-2">
-              <Plus className="h-4 w-4" />
-              New Project
-            </Button>
+          <CardContent className="py-16">
+            <Empty>
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <FolderKanban className="h-5 w-5" />
+                </EmptyMedia>
+                <EmptyTitle>No projects yet</EmptyTitle>
+                <EmptyDescription>
+                  Import a GitHub repository to get started with AI governance evaluation.
+                </EmptyDescription>
+              </EmptyHeader>
+              <Button size="sm" onClick={openCreate} className="gap-2">
+                <Plus className="h-4 w-4" />
+                New Project
+              </Button>
+            </Empty>
+          </CardContent>
+        </Card>
+      ) : filteredProjects.length === 0 ? (
+        <Card>
+          <CardContent className="py-16">
+            <Empty>
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <Search className="h-5 w-5" />
+                </EmptyMedia>
+                <EmptyTitle>No matching projects</EmptyTitle>
+                <EmptyDescription>
+                  No projects match "{searchQuery}". Try a different search term.
+                </EmptyDescription>
+              </EmptyHeader>
+            </Empty>
           </CardContent>
         </Card>
       ) : (
@@ -148,7 +223,7 @@ export function ProjectsPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {projects.map((p) => (
+              {filteredProjects.map((p) => (
                 <TableRow key={p.id}>
                   <TableCell className="font-medium">{p.name}</TableCell>
                   <TableCell>
@@ -184,8 +259,7 @@ export function ProjectsPage() {
                         variant="ghost"
                         size="sm"
                         className="text-destructive"
-                        disabled={deletingId === p.id}
-                        onClick={() => handleDelete(p.id)}
+                        onClick={() => setDeleteTarget(p)}
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </Button>
@@ -197,6 +271,24 @@ export function ProjectsPage() {
           </Table>
         </Card>
       )}
+
+      {/* Delete Confirmation */}
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete project?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete <span className="font-medium">{deleteTarget?.name}</span> along with all its evaluations, reports, and datasets. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction variant="destructive" onClick={handleDelete}>
+              {deleteProjectMut.isPending ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Create Dialog */}
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>

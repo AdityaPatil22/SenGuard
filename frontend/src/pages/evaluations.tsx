@@ -1,17 +1,16 @@
 import {
-  AlertTriangle,
   CheckCircle2,
   Clock,
-  FileText,
   FlaskConical,
-  Gauge,
   Loader2,
   Play,
   Plus,
-  ShieldCheck,
+  Search,
   XCircle,
 } from "lucide-react";
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -19,14 +18,20 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select } from "@/components/ui/select";
-import { Separator } from "@/components/ui/separator";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PipelineStepper } from "@/components/ui/pipeline-stepper";
 import { useEvaluations, useCreateEvaluation, useRunEvaluation } from "@/hooks/use-evaluations";
 import { useProjects } from "@/hooks/use-projects";
 import type { Evaluation, EvaluationStatus } from "@/types/api";
-import { riskColor, riskLabel, renderMarkdown } from "@/lib/utils";
+import { riskColor, riskLabel } from "@/lib/utils";
+
+import {
+  AlertTriangle,
+  FileText,
+  Gauge,
+  ShieldCheck,
+} from "lucide-react";
 
 const STATUS_CONFIG: Record<
   EvaluationStatus,
@@ -62,184 +67,6 @@ function useSimulatedStep(isRunning: boolean) {
     return () => clearInterval(interval);
   }, [isRunning]);
   return step;
-}
-
-const SEVERITY_BADGE: Record<string, "destructive" | "warning" | "secondary" | "default"> = {
-  critical: "destructive",
-  high: "warning",
-  medium: "secondary",
-  low: "default",
-};
-
-const CONFIDENCE_STYLE: Record<string, { label: string; class: string }> = {
-  verified: { label: "Verified", class: "bg-success/10 text-success border-success/30" },
-  observed: { label: "Observed", class: "bg-warning/10 text-warning border-warning/30" },
-  "potential-risk": { label: "Potential Risk", class: "bg-muted text-muted-foreground border-border" },
-};
-
-interface ScannerFinding {
-  source: string;
-  severity: string;
-  category: string;
-  description: string;
-  recommendation: string;
-  confidence?: string;
-  file?: string;
-  line?: number;
-  evidence?: string;
-}
-
-function ConfidenceBadge({ confidence }: { confidence?: string }) {
-  const style = CONFIDENCE_STYLE[confidence ?? "observed"] ?? CONFIDENCE_STYLE["observed"];
-  return (
-    <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border ${style!.class}`}>
-      {style!.label}
-    </span>
-  );
-}
-
-function FindingRow({ f }: { f: ScannerFinding }) {
-  return (
-    <div className="rounded-md border p-3 space-y-1.5">
-      <div className="flex items-center gap-2 flex-wrap">
-        <Badge variant={SEVERITY_BADGE[f.severity] || "default"} className="text-[10px] uppercase">
-          {f.severity}
-        </Badge>
-        <ConfidenceBadge confidence={f.confidence} />
-        <span className="text-xs font-medium text-foreground">{f.description}</span>
-      </div>
-      {f.file && (
-        <p className="text-xs text-muted-foreground font-mono">
-          {f.file}{f.line != null ? `:${f.line}` : ""}
-        </p>
-      )}
-      {f.evidence && (
-        <pre className="text-[11px] bg-muted p-2 rounded overflow-x-auto font-mono">{f.evidence}</pre>
-      )}
-      <div className="flex items-center gap-2 text-[11px]">
-        <span className="text-muted-foreground">Source: {f.source}</span>
-        <span className="text-muted-foreground">·</span>
-        <span className="text-muted-foreground">{f.recommendation}</span>
-      </div>
-    </div>
-  );
-}
-
-function ScannerResultsCard({ data }: { data: Record<string, unknown> }) {
-  const findings = (data.findings || []) as ScannerFinding[];
-  const summary = data.summary as Record<string, number> | undefined;
-  const scannersUsed = (data.scanners_used || []) as string[];
-
-  return (
-    <div className="rounded-lg border p-4 space-y-3">
-      <div className="flex items-center gap-2">
-        <ShieldCheck className="h-4 w-4 text-primary" />
-        <h4 className="text-sm font-semibold">Scanner Findings</h4>
-      </div>
-      {summary && (
-        <div className="flex gap-3 text-xs">
-          {(summary.critical ?? 0) > 0 && <Badge variant="destructive">{summary.critical} critical</Badge>}
-          {(summary.high ?? 0) > 0 && <Badge variant="warning">{summary.high} high</Badge>}
-          {(summary.medium ?? 0) > 0 && <Badge variant="secondary">{summary.medium} medium</Badge>}
-          {(summary.low ?? 0) > 0 && <Badge variant="default">{summary.low} low</Badge>}
-          <span className="text-muted-foreground ml-auto">Scanned by: {scannersUsed.join(", ")}</span>
-        </div>
-      )}
-      {findings.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No findings detected.</p>
-      ) : (
-        <div className="space-y-2 max-h-96 overflow-y-auto">
-          {findings.map((f, i) => <FindingRow key={i} f={f} />)}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function RiskBreakdownCard({ data }: { data: Record<string, unknown> }) {
-  const base = data.base_score as number | undefined;
-  const adj = data.adjustment as number | undefined;
-  const final_ = data.adjusted_score as number | undefined;
-  const reason = data.adjustment_reason as string | undefined;
-  const level = data.risk_level as string | undefined;
-
-  return (
-    <div className="rounded-lg border p-4 space-y-3">
-      <div className="flex items-center gap-2">
-        <Gauge className="h-4 w-4 text-primary" />
-        <h4 className="text-sm font-semibold">Risk Breakdown</h4>
-      </div>
-      <div className="grid grid-cols-3 gap-4 text-center">
-        <div>
-          <p className="text-xs text-muted-foreground">Base Score</p>
-          <p className="text-xl font-bold font-mono">{base ?? "—"}</p>
-        </div>
-        <div>
-          <p className="text-xs text-muted-foreground">Adjustment</p>
-          <p className="text-xl font-bold font-mono">{adj != null ? `${adj >= 0 ? "+" : ""}${adj}` : "—"}</p>
-        </div>
-        <div>
-          <p className="text-xs text-muted-foreground">Final</p>
-          <p className={`text-xl font-bold font-mono ${riskColor(final_ ?? null)}`}>{final_ ?? "—"}</p>
-        </div>
-      </div>
-      {level && <Badge variant={SEVERITY_BADGE[level] || "secondary"} className="uppercase">{level} risk</Badge>}
-      {reason && <p className="text-xs text-muted-foreground italic">{reason}</p>}
-    </div>
-  );
-}
-
-function LlmAnalysisCard({ data }: { data: Record<string, unknown> }) {
-  const supplementary = (data.supplementary_findings || []) as Array<{
-    severity: string;
-    category: string;
-    description: string;
-    recommendation: string;
-    reasoning: string;
-  }>;
-  const summary = data.summary as string | undefined;
-
-  return (
-    <div className="rounded-lg border p-4 space-y-3">
-      <div className="flex items-center gap-2">
-        <AlertTriangle className="h-4 w-4 text-primary" />
-        <h4 className="text-sm font-semibold">AI Analysis</h4>
-      </div>
-      {summary && <p className="text-sm text-foreground">{summary}</p>}
-      {supplementary.length > 0 && (
-        <div className="space-y-2">
-          <p className="text-xs font-medium text-muted-foreground">Supplementary Findings (AI-assessed)</p>
-          {supplementary.map((f, i) => (
-            <div key={i} className="rounded-md border border-dashed p-3 space-y-1.5">
-              <div className="flex items-center gap-2 flex-wrap">
-                <Badge variant={SEVERITY_BADGE[f.severity] || "default"} className="text-[10px] uppercase">
-                  {f.severity}
-                </Badge>
-                <ConfidenceBadge confidence="potential-risk" />
-                <span className="text-xs font-medium">{f.description}</span>
-              </div>
-              <p className="text-[11px] text-muted-foreground italic">{f.reasoning}</p>
-              <p className="text-[11px] text-muted-foreground">{f.recommendation}</p>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function NodeResults({ nodeResults }: { nodeResults: Record<string, unknown> }) {
-  const scanners = nodeResults.scanners as Record<string, unknown> | undefined;
-  const llmAnalysis = nodeResults.llm_analysis as Record<string, unknown> | undefined;
-  const riskBreakdown = nodeResults.risk_breakdown as Record<string, unknown> | undefined;
-
-  return (
-    <div className="space-y-3">
-      {scanners && <ScannerResultsCard data={scanners} />}
-      {llmAnalysis && <LlmAnalysisCard data={llmAnalysis} />}
-      {riskBreakdown && <RiskBreakdownCard data={riskBreakdown} />}
-    </div>
-  );
 }
 
 function EvaluationCard({
@@ -322,107 +149,29 @@ function EvaluationCard({
   );
 }
 
-function EvaluationDetail({ evaluation, onClose }: { evaluation: Evaluation; onClose: () => void }) {
-  const status = evaluation.status.toLowerCase() as EvaluationStatus;
-  const config = STATUS_CONFIG[status] || STATUS_CONFIG.pending;
-  const StatusIcon = config.icon;
-  const nodeResults = evaluation.node_results as Record<string, unknown> | null;
-  const pipelineStep = useSimulatedStep(status === "running");
-
-  return (
-    <Dialog open onOpenChange={() => onClose()}>
-      <DialogContent className="max-w-2xl">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            Evaluation Results
-            <Badge variant={config.variant} className="ml-2 gap-1">
-              <StatusIcon className={`h-3 w-3 ${status === "running" ? "animate-spin" : ""}`} />
-              {config.label}
-            </Badge>
-          </DialogTitle>
-          <DialogDescription>
-            {evaluation.model_name ? `Model: ${evaluation.model_name}` : "Default model"} &middot;{" "}
-            {formatDate(evaluation.created_at)}
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="space-y-4 mt-2">
-          {evaluation.risk_score != null && (
-            <div className="flex items-center gap-4 p-4 rounded-lg bg-muted/50">
-              <div>
-                <p className="text-xs text-muted-foreground font-medium">Risk Score</p>
-                <p className={`text-3xl font-bold font-mono ${riskColor(evaluation.risk_score)}`}>
-                  {evaluation.risk_score.toFixed(0)}
-                </p>
-              </div>
-              <div>
-                <p className={`text-sm font-semibold ${riskColor(evaluation.risk_score)}`}>
-                  {riskLabel(evaluation.risk_score)}
-                </p>
-              </div>
-            </div>
-          )}
-
-          {status === "failed" && evaluation.error_message && (
-            <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4">
-              <p className="text-sm font-medium text-destructive mb-1">Error</p>
-              <p className="text-sm text-foreground whitespace-pre-wrap">{evaluation.error_message}</p>
-            </div>
-          )}
-
-          {status === "running" && (
-            <div className="rounded-lg border border-warning/20 bg-warning/5 p-4 space-y-3">
-              <div className="flex items-center gap-2">
-                <Loader2 className="h-4 w-4 text-warning animate-spin" />
-                <p className="text-sm font-medium">Pipeline running&hellip;</p>
-              </div>
-              <PipelineStepper steps={PIPELINE_STEPS} currentStep={pipelineStep} />
-              <p className="text-xs text-muted-foreground text-center">
-                This typically takes 1-3 minutes
-              </p>
-            </div>
-          )}
-
-          {nodeResults && Object.keys(nodeResults).length > 0 && (
-            <>
-              <Separator />
-              <div>
-                <h3 className="text-sm font-semibold mb-3">Pipeline Results</h3>
-                <NodeResults nodeResults={nodeResults} />
-              </div>
-            </>
-          )}
-
-          {evaluation.summary && (
-            <>
-              <Separator />
-              <div>
-                <h3 className="text-sm font-semibold mb-2">Governance Report</h3>
-                <div
-                  className="text-sm text-foreground bg-muted/30 p-4 rounded-lg prose-sm max-h-[60vh] overflow-y-auto"
-                  dangerouslySetInnerHTML={{ __html: renderMarkdown(evaluation.summary) }}
-                />
-              </div>
-            </>
-          )}
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
 export function EvaluationsPage() {
   const { data: evaluations = [], isLoading } = useEvaluations();
   const { data: projects = [] } = useProjects();
   const createEvaluation = useCreateEvaluation();
   const runEvaluation = useRunEvaluation();
+  const navigate = useNavigate();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [projectId, setProjectId] = useState("");
   const [modelName, setModelName] = useState("");
   const [runningId, setRunningId] = useState<string | null>(null);
-  const [detailEval, setDetailEval] = useState<Evaluation | null>(null);
+  const [search, setSearch] = useState("");
 
   const projectMap = Object.fromEntries(projects.map((p) => [p.id, p.name]));
+
+  const filtered = useMemo(() => {
+    if (!search.trim()) return evaluations;
+    const q = search.toLowerCase();
+    return evaluations.filter((e) => {
+      const name = projectMap[e.project_id]?.toLowerCase() ?? "";
+      const model = e.model_name?.toLowerCase() ?? "";
+      return name.includes(q) || model.includes(q);
+    });
+  }, [evaluations, search, projectMap]);
 
   function handleCreate(e: FormEvent) {
     e.preventDefault();
@@ -433,6 +182,10 @@ export function EvaluationsPage() {
           setDialogOpen(false);
           setProjectId("");
           setModelName("");
+          toast.success("Evaluation created");
+        },
+        onError: () => {
+          toast.error("Failed to create evaluation");
         },
       },
     );
@@ -441,7 +194,11 @@ export function EvaluationsPage() {
   function handleRun(id: string, e: React.MouseEvent) {
     e.stopPropagation();
     setRunningId(id);
-    runEvaluation.mutate(id, { onSettled: () => setRunningId(null) });
+    runEvaluation.mutate(id, {
+      onSuccess: () => toast.success("Evaluation started"),
+      onError: () => toast.error("Failed to run evaluation"),
+      onSettled: () => setRunningId(null),
+    });
   }
 
   return (
@@ -494,25 +251,37 @@ export function EvaluationsPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-2">
-          {evaluations.map((e) => {
-            const isRunning = runningId === e.id || e.status.toLowerCase() === "running";
-
-            return (
-              <EvaluationCard
-                key={e.id}
-                evaluation={e}
-                projectName={projectMap[e.project_id] || "Unknown Project"}
-                isRunning={isRunning}
-                onRun={(ev) => handleRun(e.id, ev)}
-                onClick={() => setDetailEval(e)}
-              />
-            );
-          })}
+        <div className="space-y-4">
+          <div className="relative max-w-sm">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search by project or model..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+          <div className="space-y-2">
+            {filtered.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-8 text-center">No evaluations match your search.</p>
+            ) : (
+              filtered.map((e) => {
+                const isRunning = runningId === e.id || e.status.toLowerCase() === "running";
+                return (
+                  <EvaluationCard
+                    key={e.id}
+                    evaluation={e}
+                    projectName={projectMap[e.project_id] || "Unknown Project"}
+                    isRunning={isRunning}
+                    onRun={(ev) => handleRun(e.id, ev)}
+                    onClick={() => navigate(`/evaluations/${e.id}`)}
+                  />
+                );
+              })
+            )}
+          </div>
         </div>
       )}
-
-      {detailEval && <EvaluationDetail evaluation={detailEval} onClose={() => setDetailEval(null)} />}
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
@@ -525,16 +294,20 @@ export function EvaluationsPage() {
           </DialogHeader>
           <form onSubmit={handleCreate} className="space-y-4 mt-4">
             <div className="space-y-2">
-              <Label htmlFor="eval-project">Project</Label>
-              <Select id="eval-project" value={projectId} onChange={(e) => setProjectId(e.target.value)} required>
-                <option value="" disabled>
-                  Choose a project to evaluate
-                </option>
-                {projects.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
+              <Label>Project</Label>
+              <Select value={projectId} onValueChange={(v) => setProjectId(v ?? "")} required>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Choose a project to evaluate">
+                    {(value: string) => value ? projectMap[value] ?? value : null}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {projects.map((p) => (
+                    <SelectItem key={p.id} value={p.id} label={p.name}>
+                      {p.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
               </Select>
               {projects.length === 0 && (
                 <p className="text-xs text-muted-foreground">No projects found. Create a project first.</p>

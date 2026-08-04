@@ -1,9 +1,13 @@
 import uuid
 
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import ForbiddenError, NotFoundError
+from app.models.dataset import Dataset
+from app.models.evaluation import Evaluation
 from app.models.project import Project, ProjectStatus
+from app.models.report import Report
 from app.models.user import User
 from app.repositories.project import ProjectRepository
 
@@ -57,6 +61,13 @@ class ProjectService:
     async def delete(self, project_id: uuid.UUID, user: User) -> None:
         project = await self.get(project_id)
         self._check_owner(project, user)
+        eval_ids = (await self.db.execute(
+            select(Evaluation.id).where(Evaluation.project_id == project_id)
+        )).scalars().all()
+        if eval_ids:
+            await self.db.execute(delete(Report).where(Report.evaluation_id.in_(eval_ids)))
+            await self.db.execute(delete(Evaluation).where(Evaluation.project_id == project_id))
+        await self.db.execute(delete(Dataset).where(Dataset.project_id == project_id))
         await self.repo.delete(project)
 
     def _check_owner(self, project: Project, user: User) -> None:

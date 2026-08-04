@@ -21,5 +21,5 @@ class Dataset(Base, UUIDMixin, TimestampMixin):
     file_path: Mapped[str | None] = mapped_column(String(512))
     record_count: Mapped[int | None] = mapped_column(Integer)
 
-    project_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("projects.id"), nullable=False)
+    project_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
     project: Mapped[Project] = relationship(back_populates="datasets")

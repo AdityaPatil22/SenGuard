@@ -37,5 +37,5 @@ class Project(Base, UUIDMixin, TimestampMixin):
     owner_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     owner: Mapped[User] = relationship(back_populates="owned_projects")
 
-    evaluations: Mapped[list[Evaluation]] = relationship(back_populates="project", lazy="raise")
-    datasets: Mapped[list[Dataset]] = relationship(back_populates="project", lazy="raise")
+    evaluations: Mapped[list[Evaluation]] = relationship(back_populates="project", lazy="raise", cascade="all, delete-orphan", passive_deletes=True)
+    datasets: Mapped[list[Dataset]] = relationship(back_populates="project", lazy="raise", cascade="all, delete-orphan", passive_deletes=True)

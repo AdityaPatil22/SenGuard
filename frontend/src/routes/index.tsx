@@ -5,8 +5,10 @@ import { AuthCallbackPage } from "@/pages/auth-callback";
 import { DashboardPage } from "@/pages/dashboard";
 import { DatasetsPage } from "@/pages/datasets";
 import { EvaluationsPage } from "@/pages/evaluations";
+import { EvaluationDetailPage } from "@/pages/evaluation-detail";
 import { ProjectsPage } from "@/pages/projects";
 import { ReportsPage } from "@/pages/reports";
+import { ReportDetailPage } from "@/pages/report-detail";
 import { SettingsPage } from "@/pages/settings";
 
 export const router = createBrowserRouter([
@@ -22,7 +24,9 @@ export const router = createBrowserRouter([
       { path: "projects", element: <ProjectsPage /> },
       { path: "datasets", element: <DatasetsPage /> },
       { path: "evaluations", element: <EvaluationsPage /> },
+      { path: "evaluations/:id", element: <EvaluationDetailPage /> },
       { path: "reports", element: <ReportsPage /> },
+      { path: "reports/:id", element: <ReportDetailPage /> },
       { path: "settings", element: <SettingsPage /> },
     ],
   },
