@@ -6,7 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.jwt import decode_token
-from app.core.exceptions import UnauthorizedError
+from app.core.exceptions import ForbiddenError, UnauthorizedError
 from app.db.session import get_db
 from app.models.user import User
 
@@ -24,3 +24,15 @@ async def get_current_user(
     if not user or not user.is_active:
         raise UnauthorizedError("User not found or inactive")
     return user
+
+
+def require_roles(*roles: str):
+    async def dependency(
+        current_user: User = Depends(get_current_user),
+    ) -> User:
+        user_role = current_user.role or "developer"
+        if user_role not in roles:
+            raise ForbiddenError(f"Requires one of: {', '.join(roles)}")
+        return current_user
+
+    return dependency

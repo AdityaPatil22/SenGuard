@@ -53,4 +53,24 @@ async def auth_tokens(db_session):
     return {
         "access_token": create_access_token(str(user.id)),
         "refresh_token": create_refresh_token(str(user.id)),
+        "user_id": str(user.id),
+    }
+
+
+@pytest.fixture
+async def admin_user_tokens(db_session):
+    gid = _uuid.uuid4().int >> 65
+    user = User(
+        github_id=gid,
+        github_username="adminuser",
+        email=f"admin-{gid}@example.com",
+        role="admin",
+    )
+    db_session.add(user)
+    await db_session.commit()
+    await db_session.refresh(user)
+    return {
+        "access_token": create_access_token(str(user.id), extra={"role": "admin"}),
+        "refresh_token": create_refresh_token(str(user.id)),
+        "user_id": str(user.id),
     }
