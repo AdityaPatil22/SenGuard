@@ -30,7 +30,7 @@ async def create_audit_log(
         db.add(log)
         await db.flush()
     except Exception:
-        logger.warning(
+        logger.exception(
             "Failed to create audit log: action=%s resource=%s/%s",
             action,
             resource_type,

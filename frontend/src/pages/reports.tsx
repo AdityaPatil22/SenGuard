@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
+import { useCanReview } from "@/hooks/use-current-user";
 import { useReports, useApproveReport, useRejectReport } from "@/hooks/use-reports";
 import type { Report, ReportStatus } from "@/types/api";
 import { riskColor, riskLabel } from "@/lib/utils";
@@ -48,6 +49,7 @@ export function ReportsPage() {
   const [rejectComment, setRejectComment] = useState("");
   const [approvingId, setApprovingId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const canReview = useCanReview();
 
   const filtered = useMemo(() => {
     if (!search.trim()) return reports;
@@ -196,7 +198,7 @@ export function ReportsPage() {
                         </p>
                       </div>
                     )}
-                    {r.status === "in_review" && (
+                    {r.status === "in_review" && canReview && (
                       <div className="flex gap-1">
                         <Button
                           variant="ghost"

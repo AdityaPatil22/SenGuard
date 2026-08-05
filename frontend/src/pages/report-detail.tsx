@@ -19,6 +19,7 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
+import { useCanReview } from "@/hooks/use-current-user";
 import { useReports, useApproveReport, useRejectReport } from "@/hooks/use-reports";
 import { exportReport } from "@/services/reports";
 import type { ReportStatus } from "@/types/api";
@@ -53,6 +54,7 @@ export function ReportDetailPage() {
   const [rejectOpen, setRejectOpen] = useState(false);
   const [rejectComment, setRejectComment] = useState("");
   const [approving, setApproving] = useState(false);
+  const canReview = useCanReview();
 
   function handleApprove() {
     if (!report) return;
@@ -126,7 +128,7 @@ export function ReportDetailPage() {
             )}
           </div>
           <div className="flex items-center gap-2">
-            {report.status === "in_review" && (
+            {report.status === "in_review" && canReview && (
               <>
                 <Button
                   variant="outline"

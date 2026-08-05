@@ -5,7 +5,7 @@ import uuid
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.auth.dependencies import get_current_user, require_roles
+from app.auth.dependencies import require_roles
 from app.core.response import success
 from app.db.session import get_db
 from app.models.user import User
@@ -26,13 +26,6 @@ def _serialize(user: User) -> dict:
         "created_at": user.created_at.isoformat(),
         "updated_at": user.updated_at.isoformat(),
     }
-
-
-@router.get("/me")
-async def get_me(
-    current_user: User = Depends(get_current_user),
-):
-    return success(data=_serialize(current_user), message="Current user")
 
 
 @router.get("")

@@ -1,18 +1,15 @@
 import uuid
 
-from fastapi import APIRouter, BackgroundTasks, Depends, Query
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from starlette import status as http_status
 
 from app.auth.dependencies import get_current_user
-from app.core.exceptions import BadRequestError
 from app.core.response import success
 from app.db.session import get_db
 from app.models.user import User
 from app.schemas.evaluation import EvaluationCreate
 from app.services.audit import create_audit_log
 from app.services.evaluation import EvaluationService
-from app.services.evaluation_worker import run_evaluation_background
 
 router = APIRouter(prefix="/evaluations", tags=["evaluations"])
 
@@ -36,7 +33,6 @@ def _serialize(evaluation) -> dict:
 @router.post("")
 async def create_evaluation(
     data: EvaluationCreate,
-    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -47,18 +43,6 @@ async def create_evaluation(
         project_id=uuid.UUID(data.project_id) if data.project_id else None,
         dataset_id=uuid.UUID(data.dataset_id) if data.dataset_id else None,
     )
-
-    if data.auto_run:
-        await service.repo.update(evaluation, {"status": "running"})
-        await create_audit_log(
-            db,
-            action="evaluation_started",
-            resource_type="evaluation",
-            resource_id=str(evaluation.id),
-            user_id=current_user.id,
-        )
-        background_tasks.add_task(run_evaluation_background, evaluation.id, current_user.id)
-
     return success(data=_serialize(evaluation), message="Evaluation created")
 
 
@@ -92,35 +76,24 @@ async def get_evaluation(
     return success(data=_serialize(evaluation), message="Evaluation retrieved")
 
 
-@router.post("/{evaluation_id}/run", status_code=http_status.HTTP_202_ACCEPTED)
+@router.post("/{evaluation_id}/run")
 async def run_evaluation(
     evaluation_id: str,
-    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     service = EvaluationService(db)
-    evaluation = await service.get(uuid.UUID(evaluation_id))
-
-    if evaluation.status == "running":
-        raise BadRequestError("Evaluation already running")
-
-    await service.repo.update(evaluation, {"status": "running"})
 
     await create_audit_log(
         db,
         action="evaluation_started",
         resource_type="evaluation",
-        resource_id=str(evaluation.id),
+        resource_id=evaluation_id,
         user_id=current_user.id,
     )
 
-    background_tasks.add_task(run_evaluation_background, evaluation.id, current_user.id)
-
-    return success(
-        data={"id": str(evaluation.id), "status": "running"},
-        message="Evaluation started",
-    )
+    evaluation = await service.run(uuid.UUID(evaluation_id))
+    return success(data=_serialize(evaluation), message="Evaluation completed")
 
 
 @router.get("/{evaluation_id}/status")

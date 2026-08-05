@@ -41,14 +41,18 @@ class AuthService:
             user.email = gh_user.get("email")
             user.avatar_url = gh_user.get("avatar_url")
             user.github_token = gh_token
+            if settings.admin_github_username and gh_user["login"] == settings.admin_github_username and user.role != "admin":
+                user.role = "admin"
             await self.db.flush()
         else:
+            role = "admin" if settings.admin_github_username and gh_user["login"] == settings.admin_github_username else None
             user = User(
                 github_id=gh_user["id"],
                 github_username=gh_user["login"],
                 email=gh_user.get("email"),
                 avatar_url=gh_user.get("avatar_url"),
                 github_token=gh_token,
+                role=role,
             )
             user = await self.user_repo.create(user)
 
@@ -73,7 +77,7 @@ class AuthService:
 
     @staticmethod
     def _create_tokens(user: User) -> TokenResponse:
-        access_token = create_access_token(str(user.id), extra={"role": user.role or "developer"})
+        access_token = create_access_token(str(user.id))
         refresh_token = create_refresh_token(str(user.id))
         return TokenResponse(access_token=access_token, refresh_token=refresh_token)
 

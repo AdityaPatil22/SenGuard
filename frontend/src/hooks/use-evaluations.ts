@@ -7,11 +7,6 @@ export function useEvaluations() {
   return useQuery({
     queryKey: ["evaluations"],
     queryFn: getEvaluations,
-    refetchInterval: (query) => {
-      const data = query.state.data;
-      if (data?.some((e) => e.status.toLowerCase() === "running")) return 3000;
-      return false;
-    },
   });
 }
 

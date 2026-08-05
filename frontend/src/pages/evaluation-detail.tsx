@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import ReactMarkdown from "react-markdown";
 import {
@@ -6,8 +6,6 @@ import {
   ChevronDown,
   Clock,
   CheckCircle2,
-  FileText,
-  Gauge,
   Loader2,
   ShieldCheck,
   XCircle,
@@ -32,7 +30,6 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { PipelineStepper } from "@/components/ui/pipeline-stepper";
 import { useEvaluations } from "@/hooks/use-evaluations";
 import { useProjects } from "@/hooks/use-projects";
 import type { EvaluationStatus } from "@/types/api";
@@ -65,13 +62,6 @@ const CONFIDENCE_STYLE: Record<string, { label: string; class: string }> = {
   "potential-risk": { label: "Potential Risk", class: "bg-muted text-muted-foreground border-border" },
 };
 
-const PIPELINE_STEPS = [
-  { label: "Scanning", icon: <ShieldCheck className="h-3.5 w-3.5" /> },
-  { label: "AI Analysis", icon: <AlertTriangle className="h-3.5 w-3.5" /> },
-  { label: "Risk Score", icon: <Gauge className="h-3.5 w-3.5" /> },
-  { label: "Report", icon: <FileText className="h-3.5 w-3.5" /> },
-];
-
 const SEVERITY_ORDER = ["critical", "high", "medium", "low"] as const;
 
 // ---------------------------------------------------------------------------
@@ -96,21 +86,6 @@ interface ScannerFinding {
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-}
-
-function useSimulatedStep(isRunning: boolean) {
-  const [step, setStep] = useState(1);
-  useEffect(() => {
-    if (!isRunning) {
-      setStep(1);
-      return;
-    }
-    const interval = setInterval(() => {
-      setStep((s) => (s < PIPELINE_STEPS.length ? s + 1 : s));
-    }, 8000);
-    return () => clearInterval(interval);
-  }, [isRunning]);
-  return step;
 }
 
 // ---------------------------------------------------------------------------
@@ -334,7 +309,6 @@ export function EvaluationDetailPage() {
   const config = STATUS_CONFIG[status] || STATUS_CONFIG.pending;
   const StatusIcon = config.icon;
   const isRunning = status === "running";
-  const pipelineStep = useSimulatedStep(isRunning);
 
   const nodeResults = evaluation?.node_results as Record<string, unknown> | null;
   const scanners = nodeResults?.scanners as Record<string, unknown> | undefined;
@@ -431,8 +405,10 @@ export function EvaluationDetailPage() {
             <Loader2 className="h-4 w-4 text-warning animate-spin" />
             <p className="text-sm font-medium">Pipeline running&hellip;</p>
           </div>
-          <PipelineStepper steps={PIPELINE_STEPS} currentStep={pipelineStep} />
-          <p className="text-xs text-muted-foreground text-center">This typically takes 1-3 minutes</p>
+          <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+            <div className="h-full w-1/3 rounded-full bg-warning animate-pulse" />
+          </div>
+          <p className="text-xs text-muted-foreground text-center">This typically takes 1-3 minutes. This page updates automatically.</p>
         </div>
       )}
 

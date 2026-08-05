@@ -44,6 +44,9 @@ async def get_me(current_user: User = Depends(get_current_user)):
             "email": current_user.email,
             "avatar_url": current_user.avatar_url,
             "role": current_user.role or "developer",
+            "is_active": current_user.is_active,
+            "created_at": current_user.created_at.isoformat(),
+            "updated_at": current_user.updated_at.isoformat(),
         },
         message="Current user",
     )

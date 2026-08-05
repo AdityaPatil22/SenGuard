@@ -13,7 +13,7 @@ import {
   Sun,
   User,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Link, NavLink, Outlet } from "react-router-dom";
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -31,9 +31,9 @@ import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { toast } from "sonner";
 import { useAuthStore } from "@/store/auth";
 import { useThemeStore } from "@/store/theme";
+import { useCurrentUser } from "@/hooks/use-current-user";
 import api from "@/services/api";
 import type { ApiResponse } from "@/types/api";
-import type { User as UserType } from "@/types/api";
 
 const NAV_GROUPS = [
   {
@@ -91,21 +91,8 @@ function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
 
 function ProfileButton() {
   const { isAuthenticated, logout } = useAuthStore();
-  const [user, setUser] = useState<UserType | null>(null);
+  const { data: user } = useCurrentUser();
   const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    if (!isAuthenticated) {
-      setUser(null);
-      return;
-    }
-    api
-      .get<ApiResponse<UserType>>("/auth/me")
-      .then(({ data }) => {
-        if (data.success && data.data) setUser(data.data);
-      })
-      .catch(() => setUser(null));
-  }, [isAuthenticated]);
 
   if (!isAuthenticated) {
     async function handleLogin() {
@@ -150,6 +137,7 @@ function ProfileButton() {
             <div className="px-2 py-1.5 text-sm">
               <p className="font-medium">{user.github_username}</p>
               {user.email && <p className="text-muted-foreground text-xs truncate">{user.email}</p>}
+              <p className="text-muted-foreground text-xs capitalize mt-0.5">{user.role}</p>
             </div>
             <DropdownMenuSeparator />
           </>

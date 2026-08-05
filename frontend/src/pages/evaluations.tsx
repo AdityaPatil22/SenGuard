@@ -8,7 +8,7 @@ import {
   Search,
   XCircle,
 } from "lucide-react";
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useMemo, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
@@ -20,19 +20,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { PipelineStepper } from "@/components/ui/pipeline-stepper";
 import { useDatasets } from "@/hooks/use-datasets";
 import { useEvaluations, useCreateEvaluation, useRunEvaluation } from "@/hooks/use-evaluations";
 import { useProjects } from "@/hooks/use-projects";
 import type { Evaluation, EvaluationStatus } from "@/types/api";
 import { riskColor, riskLabel } from "@/lib/utils";
-
-import {
-  AlertTriangle,
-  FileText,
-  Gauge,
-  ShieldCheck,
-} from "lucide-react";
 
 const STATUS_CONFIG: Record<
   EvaluationStatus,
@@ -48,45 +40,22 @@ function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
-const PIPELINE_STEPS = [
-  { label: "Scanning", icon: <ShieldCheck className="h-3.5 w-3.5" /> },
-  { label: "AI Analysis", icon: <AlertTriangle className="h-3.5 w-3.5" /> },
-  { label: "Risk Score", icon: <Gauge className="h-3.5 w-3.5" /> },
-  { label: "Report", icon: <FileText className="h-3.5 w-3.5" /> },
-];
-
-function useSimulatedStep(isRunning: boolean) {
-  const [step, setStep] = useState(1);
-  useEffect(() => {
-    if (!isRunning) {
-      setStep(1);
-      return;
-    }
-    const interval = setInterval(() => {
-      setStep((s) => (s < PIPELINE_STEPS.length ? s + 1 : s));
-    }, 8000);
-    return () => clearInterval(interval);
-  }, [isRunning]);
-  return step;
-}
-
 function EvaluationCard({
   evaluation: e,
   projectName,
-  isRunning,
   onRun,
+  isRunPending,
   onClick,
 }: {
   evaluation: Evaluation;
   projectName: string;
-  isRunning: boolean;
   onRun: (ev: React.MouseEvent) => void;
+  isRunPending: boolean;
   onClick: () => void;
 }) {
   const status = e.status.toLowerCase() as EvaluationStatus;
   const config = STATUS_CONFIG[status] || STATUS_CONFIG.pending;
   const StatusIcon = config.icon;
-  const pipelineStep = useSimulatedStep(isRunning);
 
   return (
     <Card className="transition-colors hover:bg-muted/30 cursor-pointer" onClick={onClick}>
@@ -94,7 +63,7 @@ function EvaluationCard({
         <div className="flex items-center gap-4">
           <div
             className={`h-10 w-10 rounded-lg flex items-center justify-center shrink-0 ${
-              isRunning
+              isRunPending
                 ? "bg-warning/10"
                 : status === "completed"
                   ? "bg-success/10"
@@ -105,7 +74,7 @@ function EvaluationCard({
           >
             <StatusIcon
               className={`h-5 w-5 ${
-                isRunning
+                isRunPending
                   ? "text-warning animate-spin"
                   : status === "completed"
                     ? "text-success"
@@ -118,8 +87,8 @@ function EvaluationCard({
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
               <p className="text-sm font-medium truncate">{projectName}</p>
-              <Badge variant={isRunning ? "warning" : config.variant} className="shrink-0">
-                {isRunning ? "Running" : config.label}
+              <Badge variant={isRunPending ? "warning" : config.variant} className="shrink-0">
+                {isRunPending ? "Running" : config.label}
               </Badge>
             </div>
             <p className="text-xs text-muted-foreground mt-0.5">
@@ -136,7 +105,7 @@ function EvaluationCard({
                 <p className={`text-[10px] font-medium ${riskColor(e.risk_score)}`}>{riskLabel(e.risk_score)}</p>
               </div>
             )}
-            {status === "pending" && !isRunning && (
+            {status === "pending" && !isRunPending && (
               <Button variant="default" size="sm" className="gap-1.5" onClick={onRun}>
                 <Play className="h-3.5 w-3.5" />
                 Run
@@ -144,7 +113,14 @@ function EvaluationCard({
             )}
           </div>
         </div>
-        {isRunning && <PipelineStepper steps={PIPELINE_STEPS} currentStep={pipelineStep} />}
+        {isRunPending && (
+          <div className="flex items-center gap-2 pt-1">
+            <div className="h-1.5 flex-1 rounded-full bg-muted overflow-hidden">
+              <div className="h-full w-1/3 rounded-full bg-warning animate-pulse" />
+            </div>
+            <span className="text-[10px] text-muted-foreground whitespace-nowrap">Pipeline running&hellip;</span>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
@@ -162,7 +138,6 @@ export function EvaluationsPage() {
   const [projectId, setProjectId] = useState("");
   const [datasetId, setDatasetId] = useState("");
   const [modelName, setModelName] = useState("");
-  const [runningId, setRunningId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
 
   const projectMap = Object.fromEntries(projects.map((p) => [p.id, p.name]));
@@ -200,11 +175,9 @@ export function EvaluationsPage() {
 
   function handleRun(id: string, e: React.MouseEvent) {
     e.stopPropagation();
-    setRunningId(id);
     runEvaluation.mutate(id, {
-      onSuccess: () => toast.success("Evaluation started"),
+      onSuccess: () => toast.success("Evaluation completed"),
       onError: () => toast.error("Failed to run evaluation"),
-      onSettled: () => setRunningId(null),
     });
   }
 
@@ -272,19 +245,16 @@ export function EvaluationsPage() {
             {filtered.length === 0 ? (
               <p className="text-sm text-muted-foreground py-8 text-center">No evaluations match your search.</p>
             ) : (
-              filtered.map((e) => {
-                const isRunning = runningId === e.id || e.status.toLowerCase() === "running";
-                return (
-                  <EvaluationCard
-                    key={e.id}
-                    evaluation={e}
-                    projectName={e.project_id ? (projectMap[e.project_id] || "Unknown Project") : e.dataset_id ? (datasetMap[e.dataset_id] || e.dataset_id) : "Standalone Evaluation"}
-                    isRunning={isRunning}
-                    onRun={(ev) => handleRun(e.id, ev)}
-                    onClick={() => navigate(`/evaluations/${e.id}`)}
-                  />
-                );
-              })
+              filtered.map((e) => (
+                <EvaluationCard
+                  key={e.id}
+                  evaluation={e}
+                  projectName={e.project_id ? (projectMap[e.project_id] || "Unknown Project") : e.dataset_id ? (datasetMap[e.dataset_id] || e.dataset_id) : "Standalone Evaluation"}
+                  isRunPending={runEvaluation.isPending && runEvaluation.variables === e.id}
+                  onRun={(ev) => handleRun(e.id, ev)}
+                  onClick={() => navigate(`/evaluations/${e.id}`)}
+                />
+              ))
             )}
           </div>
         </div>

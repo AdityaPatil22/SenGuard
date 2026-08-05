@@ -103,6 +103,7 @@ class EvaluationService:
 
     async def run(self, evaluation_id: uuid.UUID) -> Evaluation:
         evaluation = await self.get(evaluation_id)
+
         if evaluation.status == EvaluationStatus.RUNNING:
             raise BadRequestError("Evaluation already running")
 

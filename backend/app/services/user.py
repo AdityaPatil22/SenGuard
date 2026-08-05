@@ -24,14 +24,9 @@ class UserService:
             raise NotFoundError("User not found")
         return user
 
-    async def change_role(self, user_id: uuid.UUID, new_role: str, acting_user: User) -> User:
+    async def change_role(self, user_id: uuid.UUID, new_role: UserRole, acting_user: User) -> User:
         if user_id == acting_user.id:
             raise BadRequestError("Cannot change your own role")
-
-        try:
-            UserRole(new_role)
-        except ValueError:
-            raise BadRequestError(f"Invalid role: {new_role}")
 
         user = await self.get_user(user_id)
         await self.repo.update(user, {"role": new_role})

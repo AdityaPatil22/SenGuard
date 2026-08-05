@@ -70,7 +70,7 @@ async def admin_user_tokens(db_session):
     await db_session.commit()
     await db_session.refresh(user)
     return {
-        "access_token": create_access_token(str(user.id), extra={"role": "admin"}),
+        "access_token": create_access_token(str(user.id)),
         "refresh_token": create_refresh_token(str(user.id)),
         "user_id": str(user.id),
     }
