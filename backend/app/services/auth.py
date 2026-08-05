@@ -60,6 +60,7 @@ class AuthService:
                 "github_username": user.github_username,
                 "email": user.email,
                 "avatar_url": user.avatar_url,
+                "role": user.role or "developer",
             },
         }
 
@@ -72,7 +73,7 @@ class AuthService:
 
     @staticmethod
     def _create_tokens(user: User) -> TokenResponse:
-        access_token = create_access_token(str(user.id))
+        access_token = create_access_token(str(user.id), extra={"role": user.role or "developer"})
         refresh_token = create_refresh_token(str(user.id))
         return TokenResponse(access_token=access_token, refresh_token=refresh_token)
 

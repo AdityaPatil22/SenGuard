@@ -3,9 +3,9 @@ import uuid
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import BadRequestError, NotFoundError
-from app.models.audit_log import AuditLog
 from app.models.report import Report, ReportStatus
 from app.repositories.report import ReportRepository
+from app.services.audit import create_audit_log
 
 VALID_TRANSITIONS: dict[str, set[str]] = {
     ReportStatus.DRAFT: {ReportStatus.IN_REVIEW},
@@ -82,15 +82,14 @@ class ReportService:
             raise BadRequestError(f"Cannot transition from {report.status} to {target}")
 
     async def _audit(self, user_id: uuid.UUID, report_id: uuid.UUID, action: str, details: str | None = None) -> None:
-        log = AuditLog(
-            user_id=user_id,
+        await create_audit_log(
+            self.db,
             action=action,
             resource_type="report",
             resource_id=str(report_id),
+            user_id=user_id,
             details=details,
         )
-        self.db.add(log)
-        await self.db.flush()
 
 
 def _serialize(report: Report) -> dict:
