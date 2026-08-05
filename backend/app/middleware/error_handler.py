@@ -1,8 +1,9 @@
+import logging
+
 from fastapi import Request
 from starlette.responses import JSONResponse
 
 from app.core.exceptions import AppError
-import logging
 
 logger = logging.getLogger(__name__)
 

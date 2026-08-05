@@ -6,30 +6,20 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 from app.auth.jwt import create_access_token, create_refresh_token
 from app.config import get_settings
-from app.db.base import Base
 from app.db.session import get_db
 from app.main import app
 from app.models.user import User
 
 settings = get_settings()
 
-test_engine = create_async_engine(settings.database_url, echo=False)
-TestSessionLocal = async_sessionmaker(test_engine, class_=AsyncSession, expire_on_commit=False)
-
-
-@pytest.fixture(scope="session", autouse=True)
-async def setup_db():
-    async with test_engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-    yield
-    async with test_engine.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
-
 
 @pytest.fixture
 async def db_session():
-    async with TestSessionLocal() as session:
+    engine = create_async_engine(settings.database_url, echo=False)
+    factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+    async with factory() as session:
         yield session
+    await engine.dispose()
 
 
 @pytest.fixture

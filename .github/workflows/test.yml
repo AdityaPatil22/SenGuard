@@ -26,6 +26,8 @@ jobs:
     env:
       DATABASE_URL: postgresql+asyncpg://sentinel:sentinel@localhost:5432/sentinel_ai_test
       SECRET_KEY: test-secret-key
+      GITHUB_CLIENT_ID: fake
+      GITHUB_CLIENT_SECRET: fake
       APP_ENV: development
     defaults:
       run:
@@ -49,4 +51,4 @@ jobs:
         with:
           node-version: "22"
       - run: npm ci
-      - run: npx vitest run
+      - run: npm test

@@ -17,7 +17,9 @@ class ProjectService:
         self.db = db
         self.repo = ProjectRepository(db)
 
-    async def create(self, name: str, description: str | None, owner_id: uuid.UUID, *, repo_url: str | None = None) -> Project:
+    async def create(
+        self, name: str, description: str | None, owner_id: uuid.UUID, *, repo_url: str | None = None
+    ) -> Project:
         repo_full_name = None
         if repo_url:
             parts = repo_url.rstrip("/").split("/")
@@ -61,9 +63,9 @@ class ProjectService:
     async def delete(self, project_id: uuid.UUID, user: User) -> None:
         project = await self.get(project_id)
         self._check_owner(project, user)
-        eval_ids = (await self.db.execute(
-            select(Evaluation.id).where(Evaluation.project_id == project_id)
-        )).scalars().all()
+        eval_ids = (
+            (await self.db.execute(select(Evaluation.id).where(Evaluation.project_id == project_id))).scalars().all()
+        )
         if eval_ids:
             await self.db.execute(delete(Report).where(Report.evaluation_id.in_(eval_ids)))
             await self.db.execute(delete(Evaluation).where(Evaluation.project_id == project_id))

@@ -41,11 +41,19 @@ class AuthService:
             user.email = gh_user.get("email")
             user.avatar_url = gh_user.get("avatar_url")
             user.github_token = gh_token
-            if settings.admin_github_username and gh_user["login"] == settings.admin_github_username and user.role != "admin":
+            if (
+                settings.admin_github_username
+                and gh_user["login"] == settings.admin_github_username
+                and user.role != "admin"
+            ):
                 user.role = "admin"
             await self.db.flush()
         else:
-            role = "admin" if settings.admin_github_username and gh_user["login"] == settings.admin_github_username else None
+            role = (
+                "admin"
+                if settings.admin_github_username and gh_user["login"] == settings.admin_github_username
+                else None
+            )
             user = User(
                 github_id=gh_user["id"],
                 github_username=gh_user["login"],

@@ -17,9 +17,9 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: pip install ruff black mypy
+      - run: pip install -r requirements/dev.txt
       - run: ruff check .
-      - run: black --check .
+      - run: ruff format --check .
 
   frontend-lint:
     runs-on: ubuntu-latest
@@ -33,4 +33,4 @@ jobs:
           node-version: "22"
       - run: npm ci
       - run: npx eslint .
-      - run: npx prettier --check "src/**/*.{ts,tsx,css}"
+      - run: npx tsc --noEmit

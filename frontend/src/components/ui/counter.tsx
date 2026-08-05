@@ -23,15 +23,15 @@ function Number({ mv, number, height }: NumberProps) {
   );
 }
 
-function Digit({ place, value, height }: { place: number | "."; value: number; height: number }) {
-  if (place === ".") {
-    return (
-      <span className="relative inline-flex items-center justify-center" style={{ height }}>
-        .
-      </span>
-    );
-  }
+function DecimalPoint({ height }: { height: number }) {
+  return (
+    <span className="relative inline-flex items-center justify-center" style={{ height }}>
+      .
+    </span>
+  );
+}
 
+function Digit({ place, value, height }: { place: number; value: number; height: number }) {
   const valueRoundedToPlace = Math.floor(value / place);
   const animatedValue = useSpring(valueRoundedToPlace);
 
@@ -79,9 +79,13 @@ export function Counter({
   return (
     <span className="inline-block">
       <span style={{ fontSize, display: "flex", gap, overflow: "hidden", lineHeight: 1, color: textColor, fontWeight, direction: "ltr" }}>
-        {places.map((place) => (
-          <Digit key={place} place={place} value={value} height={height} />
-        ))}
+        {places.map((place) =>
+          place === "." ? (
+            <DecimalPoint key="." height={height} />
+          ) : (
+            <Digit key={place} place={place} value={value} height={height} />
+          )
+        )}
       </span>
     </span>
   );

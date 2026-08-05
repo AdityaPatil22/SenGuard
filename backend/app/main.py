@@ -2,10 +2,10 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from starlette.responses import JSONResponse
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from sqlalchemy import text
+from starlette.responses import JSONResponse
 
 from app.api.v1 import router as v1_router
 from app.config import get_settings
@@ -32,12 +32,7 @@ def _sync_schema(conn):
             if not isinstance(col.type, SAEnum) or not col.type.enums:
                 continue
             pg_type_name = col.type.name or f"{table.name}_{col.name}"
-            existing = {
-                row[0]
-                for row in conn.execute(
-                    text("SELECT unnest(enum_range(NULL::{}))::text".format(pg_type_name))
-                )
-            }
+            existing = {row[0] for row in conn.execute(text(f"SELECT unnest(enum_range(NULL::{pg_type_name}))::text"))}
             for val in col.type.enums:
                 if val not in existing:
                     conn.execute(text(f"ALTER TYPE {pg_type_name} ADD VALUE IF NOT EXISTS '{val}'"))

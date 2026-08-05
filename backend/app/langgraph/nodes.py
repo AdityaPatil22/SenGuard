@@ -125,6 +125,7 @@ async def risk_scoring(state: EvaluationState) -> EvaluationState:
     findings = scanner_results.get("findings", [])
 
     from app.scanners import Finding as FindingClass
+
     finding_objects = [
         FindingClass(
             source=f.get("source", ""),
@@ -183,7 +184,13 @@ Return JSON with:
             "adjustment": 0,
             "adjusted_score": base_score,
             "adjustment_reason": f"LLM scoring failed, using base score: {e}",
-            "risk_level": "low" if base_score <= 25 else "medium" if base_score <= 50 else "high" if base_score <= 75 else "critical",
+            "risk_level": "low"
+            if base_score <= 25
+            else "medium"
+            if base_score <= 50
+            else "high"
+            if base_score <= 75
+            else "critical",
         }
         state.setdefault("errors", []).append(f"Risk scoring AI failed: {e}")
 
@@ -238,7 +245,9 @@ Keep it concise and actionable. Under 800 words."""
         state["report"] = await _ask_gemini(prompt)
     except Exception as e:
         logger.exception("report_generation node failed")
-        state["report"] = f"# Evaluation Report — {project_name}\n\nRisk Score: {risk_score}/100\n\nReport generation failed: {e}"
+        state["report"] = (
+            f"# Evaluation Report — {project_name}\n\nRisk Score: {risk_score}/100\n\nReport generation failed: {e}"
+        )
         state.setdefault("errors", []).append(f"Report generation failed: {e}")
 
     return state
