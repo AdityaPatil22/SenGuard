@@ -41,6 +41,7 @@ export interface Project {
 
 export interface Evaluation {
   id: string;
+  evaluation_type: "application" | "dataset" | "standalone";
   status: EvaluationStatus;
   risk_score: number | null;
   summary: string | null;
@@ -68,7 +69,7 @@ export interface Report {
   evaluation_id: string;
   reviewer_id: string | null;
   project_id: string;
-  project_name: string;
+  subject_name: string;
   risk_score: number | null;
   created_at: string;
   updated_at: string;
@@ -80,7 +81,6 @@ export interface Dataset {
   description: string | null;
   file_path: string | null;
   record_count: number | null;
-  project_id: string | null;
   created_at: string;
   updated_at: string;
 }

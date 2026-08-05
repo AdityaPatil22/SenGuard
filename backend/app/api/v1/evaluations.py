@@ -25,6 +25,11 @@ def _serialize(evaluation) -> dict:
         "error_message": evaluation.error_message,
         "project_id": str(evaluation.project_id) if evaluation.project_id else None,
         "dataset_id": str(evaluation.dataset_id) if evaluation.dataset_id else None,
+        "evaluation_type": "application"
+        if evaluation.project_id
+        else "dataset"
+        if evaluation.dataset_id
+        else "standalone",
         "created_at": evaluation.created_at.isoformat(),
         "updated_at": evaluation.updated_at.isoformat(),
     }
@@ -50,6 +55,7 @@ async def create_evaluation(
 async def list_evaluations(
     project_id: str | None = Query(None),
     status: str | None = Query(None),
+    evaluation_type: str | None = Query(None),
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
@@ -59,6 +65,7 @@ async def list_evaluations(
     evaluations = await service.list_all(
         project_id=uuid.UUID(project_id) if project_id else None,
         status=status,
+        evaluation_type=evaluation_type,
         skip=skip,
         limit=limit,
     )

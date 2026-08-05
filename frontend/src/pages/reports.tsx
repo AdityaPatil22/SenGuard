@@ -54,7 +54,7 @@ export function ReportsPage() {
   const filtered = useMemo(() => {
     if (!search.trim()) return reports;
     const q = search.toLowerCase();
-    return reports.filter((r) => (r.project_name || "").toLowerCase().includes(q));
+    return reports.filter((r) => (r.subject_name || "").toLowerCase().includes(q));
   }, [reports, search]);
 
   function handleApprove(id: string, e: React.MouseEvent) {
@@ -177,7 +177,7 @@ export function ReportsPage() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <p className="text-sm font-medium truncate">{r.project_name || r.id.slice(0, 8)}</p>
+                      <p className="text-sm font-medium truncate">{r.subject_name || r.id.slice(0, 8)}</p>
                       <Badge variant={STATUS_VARIANT[r.status]}>{STATUS_LABEL[r.status]}</Badge>
                     </div>
                     <p className="text-xs text-muted-foreground mt-0.5">

@@ -105,7 +105,12 @@ def _serialize(report: Report) -> dict:
         "evaluation_id": str(report.evaluation_id),
         "reviewer_id": str(report.reviewer_id) if report.reviewer_id else None,
         "project_id": str(evaluation.project_id) if evaluation and evaluation.project_id else None,
-        "project_name": name,
+        "subject_name": name,
+        "evaluation_type": "application"
+        if evaluation and evaluation.project_id
+        else "dataset"
+        if evaluation and evaluation.dataset_id
+        else "standalone",
         "risk_score": evaluation.risk_score if evaluation else None,
         "created_at": report.created_at.isoformat(),
         "updated_at": report.updated_at.isoformat(),

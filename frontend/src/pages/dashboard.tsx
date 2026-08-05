@@ -47,7 +47,7 @@ export function DashboardPage() {
   const { data: reports = [] } = useReports();
 
   const projectMap = new Map(projects.map((p) => [p.id, p.name]));
-  const projectName = (id: string | null) => id ? (projectMap.get(id) ?? "Unknown project") : "Standalone";
+  const projectName = (id: string | null) => id ? (projectMap.get(id) ?? "Unknown project") : "Dataset Evaluation";
 
   const scoredEvals = evaluations.filter((e) => e.risk_score != null);
   const avgRisk =
@@ -160,7 +160,7 @@ export function DashboardPage() {
                 {needsReview.map((r) => (
                   <Link key={r.id} to={`/reports`} className="flex items-center justify-between rounded-md p-2 transition-colors hover:bg-muted/50">
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-medium">{r.project_name}</p>
+                      <p className="truncate text-sm font-medium">{r.subject_name}</p>
                       <p className="text-xs text-muted-foreground">
                         Risk:{" "}
                         <span className={riskColor(r.risk_score)}>

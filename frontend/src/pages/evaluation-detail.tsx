@@ -300,9 +300,11 @@ export function EvaluationDetailPage() {
 
   const evaluation = evaluations.find((e) => e.id === id);
   const projectName = evaluation
-    ? evaluation.project_id
+    ? evaluation.evaluation_type === "application"
       ? projects.find((p) => p.id === evaluation.project_id)?.name ?? "Unknown Project"
-      : "Standalone Evaluation"
+      : evaluation.evaluation_type === "dataset"
+        ? "Dataset Evaluation"
+        : "Standalone Evaluation"
     : "";
 
   const status = (evaluation?.status.toLowerCase() ?? "pending") as EvaluationStatus;

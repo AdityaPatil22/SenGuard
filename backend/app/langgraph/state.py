@@ -10,6 +10,7 @@ class EvaluationState(TypedDict, total=False):
     dataset_samples: list[str]
     repo_files: list[dict[str, str]]
     repo_path: str | None
+    has_repo: bool
 
     # Phase 1: deterministic scan results
     scanner_results: dict[str, Any]

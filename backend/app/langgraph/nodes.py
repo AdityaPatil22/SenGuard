@@ -64,15 +64,42 @@ def _format_repo_context(state: EvaluationState) -> str:
     return "\n".join(parts)
 
 
+def _format_dataset_context(state: EvaluationState) -> str:
+    samples = state.get("dataset_samples") or []
+    if not samples:
+        return ""
+    preview = "\n".join(samples[:20])
+    return f"\n\n--- DATASET SAMPLE ({len(samples)} rows) ---\n{preview}"
+
+
 async def llm_analysis(state: EvaluationState) -> EvaluationState:
     scanner_results = state.get("scanner_results", {})
     findings = scanner_results.get("findings", [])
     summary = scanner_results.get("summary", {})
     description = state.get("project_description") or "No description provided."
     model_name = state.get("model_name") or "unspecified LLM"
+    has_repo = state.get("has_repo", False)
     repo_context = _format_repo_context(state)
+    dataset_context = _format_dataset_context(state)
 
-    prompt = f"""You are an AI governance analyst. You are reviewing an LLM application that has already been scanned by automated security tools.
+    if has_repo:
+        eval_type = "an LLM application codebase"
+        supplementary_guidance = """Identify risks that automated scanners CANNOT catch:
+- Architectural prompt injection risks (e.g., user controls system prompt via API parameter)
+- Business logic risks (is this model appropriate for this use case?)
+- Missing safeguards (no content filtering, no human-in-the-loop for high-stakes decisions)
+- Privacy/compliance concerns beyond PII regex (e.g., data retention, cross-border transfer)"""
+    else:
+        eval_type = "a dataset intended for use with an LLM application"
+        supplementary_guidance = """Identify data-specific risks that automated scanners CANNOT catch:
+- Data quality issues (bias, imbalance, insufficient coverage)
+- Sensitive content that could cause harmful LLM outputs if used for training or prompting
+- Schema or formatting issues that could lead to misinterpretation
+- Representativeness concerns (does this dataset cover the intended use case adequately?)
+
+Do NOT flag missing repository files, .gitignore, or code-level issues — this is a dataset evaluation, not a code review."""
+
+    prompt = f"""You are an AI governance analyst reviewing {eval_type}.
 
 Project: {state.get("project_name", "Unknown")}
 Description: {description}
@@ -83,19 +110,15 @@ Total findings: {summary.get("total", 0)} (critical: {summary.get("critical", 0)
 
 Detailed findings:
 {json.dumps(findings, indent=2, default=str)}
-{repo_context}
+{repo_context}{dataset_context}
 
 Your job has TWO parts:
 
 **Part 1 — Interpret scanner findings:**
-For each scanner finding, provide a plain-English explanation of why it matters and any contextual notes (e.g., "this secret is in a test fixture" or "this eval() is processing untrusted LLM output, making it especially dangerous").
+For each scanner finding, provide a plain-English explanation of why it matters and any contextual notes. If there are no findings, return an empty list.
 
 **Part 2 — Supplementary analysis:**
-Identify risks that automated scanners CANNOT catch:
-- Architectural prompt injection risks (e.g., user controls system prompt via API parameter)
-- Business logic risks (is this model appropriate for this use case?)
-- Missing safeguards (no content filtering, no human-in-the-loop for high-stakes decisions)
-- Privacy/compliance concerns beyond PII regex (e.g., data retention, cross-border transfer)
+{supplementary_guidance}
 
 Mark each supplementary finding clearly as AI-assessed with confidence "potential-risk".
 
@@ -199,18 +222,22 @@ Return JSON with:
 
 async def report_generation(state: EvaluationState) -> EvaluationState:
     scanner_results = state.get("scanner_results", {})
-    llm_analysis = state.get("llm_analysis_result", {})
+    llm_analysis_result = state.get("llm_analysis_result", {})
     risk_breakdown = state.get("risk_breakdown", {})
     risk_score = state.get("risk_score", 0)
     project_name = state.get("project_name", "Unknown")
+    has_repo = state.get("has_repo", False)
     scanners_used = scanner_results.get("scanners_used", [])
     findings = scanner_results.get("findings", [])
-    interpreted = llm_analysis.get("interpreted_findings", [])
-    supplementary = llm_analysis.get("supplementary_findings", [])
+    interpreted = llm_analysis_result.get("interpreted_findings", [])
+    supplementary = llm_analysis_result.get("supplementary_findings", [])
 
-    prompt = f"""You are a governance report writer. Generate a clear, professional AI governance evaluation report.
+    eval_type = "codebase" if has_repo else "dataset"
+
+    prompt = f"""You are a governance report writer. Generate a clear, professional AI governance evaluation report for a {eval_type} evaluation.
 
 Project: {project_name}
+Evaluation type: {eval_type}
 Overall Risk Score: {risk_score}/100 ({risk_breakdown.get("risk_level", "unknown")})
 Score breakdown: base {risk_breakdown.get("base_score", "N/A")}, adjustment {risk_breakdown.get("adjustment", 0):+d} — {risk_breakdown.get("adjustment_reason", "")}
 Scanners used: {", ".join(scanners_used) if scanners_used else "None"}
@@ -226,18 +253,13 @@ Scanners used: {", ".join(scanners_used) if scanners_used else "None"}
 
 Write a structured governance report in markdown with these sections:
 1. **Executive Summary** — 2-3 sentence overview with risk score and recommendation (approve/conditional/reject)
-2. **Scanner Findings** — group by category. For each finding include:
-   - Source (which scanner detected it)
-   - Severity badge
-   - File and line number where applicable
-   - Evidence (the code/data snippet)
-   - Plain-English explanation
-   - Recommendation
+2. **Scanner Findings** — group by category. For each finding include source, severity, evidence, explanation, and recommendation. If no findings, state that clearly.
 3. **AI-Assessed Risks** — supplementary findings clearly labeled as AI-assessed, with reasoning
 4. **Risk Score Breakdown** — base score, adjustment, and rationale
 5. **Recommendations** — prioritized action items, critical first
 
 IMPORTANT: Every finding must cite its source. Scanner-detected findings say "Detected by: [scanner name]". AI-assessed findings say "Assessed by: AI analysis".
+{"" if has_repo else "This is a DATASET evaluation — do not mention missing repository files, .gitignore, or code-level concerns. Focus on data quality, PII, bias, and fitness for purpose."}
 
 Keep it concise and actionable. Under 800 words."""
 

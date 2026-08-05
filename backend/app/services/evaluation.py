@@ -8,7 +8,6 @@ from app.langgraph.graph import get_evaluation_workflow
 from app.models.dataset import Dataset
 from app.models.evaluation import Evaluation, EvaluationStatus
 from app.models.project import Project
-from app.repositories.dataset import DatasetRepository
 from app.repositories.evaluation import EvaluationRepository
 from app.services.github import cleanup_repo, clone_repo, extract_key_files
 from app.services.report import ReportService
@@ -29,6 +28,11 @@ class EvaluationService:
         project_id: uuid.UUID | None = None,
         dataset_id: uuid.UUID | None = None,
     ) -> Evaluation:
+        if project_id and dataset_id:
+            raise BadRequestError("Choose either a project or a dataset, not both")
+        if not project_id and not dataset_id:
+            raise BadRequestError("Either project_id or dataset_id is required")
+
         if project_id:
             project = await self.db.get(Project, project_id)
             if not project:
@@ -58,48 +62,17 @@ class EvaluationService:
         self,
         project_id: uuid.UUID | None = None,
         status: str | None = None,
+        evaluation_type: str | None = None,
         skip: int = 0,
         limit: int = 100,
     ) -> list[Evaluation]:
         if project_id:
             return await self.repo.get_by_project(project_id, skip, limit)
+        if evaluation_type:
+            return await self.repo.get_by_type(evaluation_type, skip, limit)
         if status:
             return await self.repo.get_by_status(status, skip, limit)
         return await self.repo.get_all(skip, limit)
-
-    async def _load_dataset_samples(
-        self,
-        project_id: uuid.UUID | None,
-        dataset_id: uuid.UUID | None = None,
-        max_rows: int = 50,
-    ) -> list[str]:
-        datasets: list[Dataset] = []
-        if dataset_id:
-            ds = await self.db.get(Dataset, dataset_id)
-            if ds:
-                datasets = [ds]
-        elif project_id:
-            dataset_repo = DatasetRepository(self.db)
-            datasets = await dataset_repo.get_by_project(project_id, skip=0, limit=10)
-
-        if not datasets:
-            return []
-
-        samples: list[str] = []
-        storage = get_storage_from_settings()
-        for ds in datasets:
-            if not ds.file_path:
-                continue
-            try:
-                if await storage.exists(ds.file_path):
-                    raw = await storage.load(ds.file_path)
-                    lines = raw.decode("utf-8", errors="replace").splitlines()[:max_rows]
-                    samples.extend(lines)
-            except Exception:
-                continue
-            if len(samples) >= max_rows:
-                break
-        return samples[:max_rows]
 
     async def run(self, evaluation_id: uuid.UUID) -> Evaluation:
         evaluation = await self.get(evaluation_id)
@@ -111,7 +84,15 @@ class EvaluationService:
 
         try:
             project = await self.db.get(Project, evaluation.project_id) if evaluation.project_id else None
-            dataset_samples = await self._load_dataset_samples(evaluation.project_id, evaluation.dataset_id)
+
+            dataset_samples: list[str] = []
+            if evaluation.dataset_id:
+                ds = await self.db.get(Dataset, evaluation.dataset_id)
+                if ds and ds.file_path:
+                    storage = get_storage_from_settings()
+                    if await storage.exists(ds.file_path):
+                        raw = await storage.load(ds.file_path)
+                        dataset_samples = raw.decode("utf-8", errors="replace").splitlines()[:50]
 
             repo_files: list[dict] = []
             repo_path: str | None = None
@@ -132,6 +113,7 @@ class EvaluationService:
                         "dataset_samples": dataset_samples,
                         "repo_files": repo_files,
                         "repo_path": repo_path,
+                        "has_repo": bool(repo_files),
                     }
                 )
             finally:

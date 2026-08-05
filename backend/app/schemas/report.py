@@ -8,8 +8,9 @@ class ReportResponse(BaseModel):
     rejection_comment: str | None
     evaluation_id: str
     reviewer_id: str | None
-    project_id: str
-    project_name: str
+    project_id: str | None
+    subject_name: str | None
+    evaluation_type: str
     risk_score: float | None
     created_at: str
     updated_at: str

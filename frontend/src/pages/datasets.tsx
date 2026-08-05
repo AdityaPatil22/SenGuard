@@ -17,12 +17,10 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { useDatasets, useCreateDataset, useDeleteDataset } from "@/hooks/use-datasets";
-import { useProjects } from "@/hooks/use-projects";
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
@@ -36,14 +34,12 @@ function formatFileSize(bytes: number) {
 
 export function DatasetsPage() {
   const { data: datasets = [], isLoading } = useDatasets();
-  const { data: projects = [] } = useProjects();
   const createDataset = useCreateDataset();
   const deleteDatasetMut = useDeleteDataset();
 
   const [createOpen, setCreateOpen] = useState(false);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [projectId, setProjectId] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [dragging, setDragging] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -56,7 +52,6 @@ export function DatasetsPage() {
   function openCreate() {
     setName("");
     setDescription("");
-    setProjectId("");
     setFile(null);
     setDragging(false);
     if (fileRef.current) fileRef.current.value = "";
@@ -76,7 +71,7 @@ export function DatasetsPage() {
   function handleCreate(e: FormEvent) {
     e.preventDefault();
     createDataset.mutate(
-      { name, project_id: projectId || undefined, description: description || undefined, file: file ?? undefined },
+      { name, description: description || undefined, file: file ?? undefined },
       {
         onSuccess: () => {
           setCreateOpen(false);
@@ -102,8 +97,6 @@ export function DatasetsPage() {
     });
   }
 
-  const projectMap = Object.fromEntries(projects.map((p) => [p.id, p.name]));
-
   const filtered = search
     ? datasets.filter((d) => d.name.toLowerCase().includes(search.toLowerCase()))
     : datasets;
@@ -113,7 +106,7 @@ export function DatasetsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Datasets</h1>
-          <p className="text-sm text-muted-foreground">Upload and manage evaluation datasets for your projects</p>
+          <p className="text-sm text-muted-foreground">Upload and manage evaluation datasets</p>
         </div>
         <Button size="sm" className="gap-2" onClick={openCreate}>
           <Plus className="h-4 w-4" />
@@ -161,7 +154,6 @@ export function DatasetsPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Name</TableHead>
-                  <TableHead>Project</TableHead>
                   <TableHead className="hidden md:table-cell">Description</TableHead>
                   <TableHead className="hidden sm:table-cell">Records</TableHead>
                   <TableHead className="hidden sm:table-cell">Created</TableHead>
@@ -171,7 +163,7 @@ export function DatasetsPage() {
               <TableBody>
                 {filtered.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
+                    <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
                       No datasets match your search.
                     </TableCell>
                   </TableRow>
@@ -179,9 +171,6 @@ export function DatasetsPage() {
                   filtered.map((d) => (
                     <TableRow key={d.id}>
                       <TableCell className="font-medium max-w-[200px] truncate">{d.name}</TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {d.project_id ? (projectMap[d.project_id] ?? d.project_id.slice(0, 8)) : "—"}
-                      </TableCell>
                       <TableCell className="hidden md:table-cell text-muted-foreground max-w-xs truncate">
                         {d.description ?? "—"}
                       </TableCell>
@@ -213,7 +202,7 @@ export function DatasetsPage() {
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Upload Dataset</DialogTitle>
-            <DialogDescription>Upload an evaluation dataset. Optionally assign it to a project.</DialogDescription>
+            <DialogDescription>Upload an evaluation dataset.</DialogDescription>
           </DialogHeader>
           <form onSubmit={handleCreate} className="space-y-4 mt-4 min-w-0">
             <div className="space-y-2">
@@ -225,21 +214,6 @@ export function DatasetsPage() {
                 placeholder="Dataset name"
                 required
               />
-            </div>
-            <div className="space-y-2">
-              <Label>Project (optional)</Label>
-              <Select value={projectId} onValueChange={(v) => setProjectId(v ?? "")}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="No project — standalone dataset">
-                    {(value: string) => value ? projectMap[value] ?? value : null}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {projects.map((p) => (
-                    <SelectItem key={p.id} value={p.id} label={p.name}>{p.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
             </div>
             <div className="space-y-2">
               <Label htmlFor="ds-desc">Description</Label>

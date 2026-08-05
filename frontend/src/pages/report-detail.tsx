@@ -112,7 +112,7 @@ export function ReportDetailPage() {
           </BreadcrumbItem>
           <BreadcrumbSeparator />
           <BreadcrumbItem>
-            <BreadcrumbPage>{report.project_name || report.id.slice(0, 8)}</BreadcrumbPage>
+            <BreadcrumbPage>{report.subject_name || report.id.slice(0, 8)}</BreadcrumbPage>
           </BreadcrumbItem>
         </BreadcrumbList>
       </Breadcrumb>

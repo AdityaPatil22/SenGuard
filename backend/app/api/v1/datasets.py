@@ -20,7 +20,6 @@ def _serialize(dataset) -> dict:
         "description": dataset.description,
         "file_path": dataset.file_path,
         "record_count": dataset.record_count,
-        "project_id": str(dataset.project_id) if dataset.project_id else None,
         "created_at": dataset.created_at.isoformat(),
         "updated_at": dataset.updated_at.isoformat(),
     }
@@ -33,7 +32,6 @@ def _get_storage():
 @router.post("")
 async def create_dataset(
     name: str = Form(...),
-    project_id: str | None = Form(None),
     description: str | None = Form(None),
     file: UploadFile | None = File(None),
     db: AsyncSession = Depends(get_db),
@@ -46,7 +44,6 @@ async def create_dataset(
     dataset = await service.create(
         name=name,
         user=current_user,
-        project_id=uuid.UUID(project_id) if project_id else None,
         description=description,
         file_data=file_data,
         file_name=file_name,
@@ -56,7 +53,6 @@ async def create_dataset(
 
 @router.get("")
 async def list_datasets(
-    project_id: str | None = Query(None),
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
@@ -65,7 +61,6 @@ async def list_datasets(
     storage = _get_storage()
     service = DatasetService(db, storage)
     datasets = await service.list_all(
-        project_id=uuid.UUID(project_id) if project_id else None,
         skip=skip,
         limit=limit,
     )

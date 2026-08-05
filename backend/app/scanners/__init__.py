@@ -70,14 +70,17 @@ async def run_all_scanners(
 
     results = ScanResults()
 
-    scanners = [
-        ("secrets", lambda: scan_secrets(repo_files, repo_path)),
-        ("code-patterns", lambda: scan_code_patterns(repo_files)),
-        ("pii", lambda: scan_pii(dataset_samples)),
-        ("dependencies", lambda: scan_dependencies(repo_files)),
-        ("llm-patterns", lambda: scan_llm_patterns(repo_files)),
-        ("file-hygiene", lambda: scan_file_hygiene(repo_files)),
-    ]
+    scanners: list[tuple[str, object]] = []
+    if repo_files:
+        scanners += [
+            ("secrets", lambda: scan_secrets(repo_files, repo_path)),
+            ("code-patterns", lambda: scan_code_patterns(repo_files)),
+            ("dependencies", lambda: scan_dependencies(repo_files)),
+            ("llm-patterns", lambda: scan_llm_patterns(repo_files)),
+            ("file-hygiene", lambda: scan_file_hygiene(repo_files)),
+        ]
+    if dataset_samples:
+        scanners.append(("pii", lambda: scan_pii(dataset_samples)))
 
     for name, scanner in scanners:
         try:

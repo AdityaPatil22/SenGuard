@@ -11,7 +11,6 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.base import Base, TimestampMixin, UUIDMixin
 
 if TYPE_CHECKING:
-    from app.models.dataset import Dataset
     from app.models.evaluation import Evaluation
     from app.models.user import User
 
@@ -38,4 +37,3 @@ class Project(Base, UUIDMixin, TimestampMixin):
     owner: Mapped[User] = relationship(back_populates="owned_projects")
 
     evaluations: Mapped[list[Evaluation]] = relationship(back_populates="project", lazy="raise", passive_deletes=True)
-    datasets: Mapped[list[Dataset]] = relationship(back_populates="project", lazy="raise", passive_deletes=True)

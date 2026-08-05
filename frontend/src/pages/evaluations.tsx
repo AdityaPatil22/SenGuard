@@ -113,14 +113,6 @@ function EvaluationCard({
             )}
           </div>
         </div>
-        {isRunPending && (
-          <div className="flex items-center gap-2 pt-1">
-            <div className="h-1.5 flex-1 rounded-full bg-muted overflow-hidden">
-              <div className="h-full w-1/3 rounded-full bg-warning animate-pulse" />
-            </div>
-            <span className="text-[10px] text-muted-foreground whitespace-nowrap">Pipeline running&hellip;</span>
-          </div>
-        )}
       </CardContent>
     </Card>
   );
@@ -134,7 +126,7 @@ export function EvaluationsPage() {
   const runEvaluation = useRunEvaluation();
   const navigate = useNavigate();
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [evalType, setEvalType] = useState<"project" | "dataset">("project");
+  const [evalType, setEvalType] = useState<"application" | "dataset">("application");
   const [projectId, setProjectId] = useState("");
   const [datasetId, setDatasetId] = useState("");
   const [modelName, setModelName] = useState("");
@@ -160,7 +152,7 @@ export function EvaluationsPage() {
       {
         onSuccess: () => {
           setDialogOpen(false);
-          setEvalType("project");
+          setEvalType("application");
           setProjectId("");
           setDatasetId("");
           setModelName("");
@@ -235,7 +227,7 @@ export function EvaluationsPage() {
           <div className="relative max-w-sm">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search by project or model..."
+              placeholder="Search evaluations..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="pl-9"
@@ -249,7 +241,7 @@ export function EvaluationsPage() {
                 <EvaluationCard
                   key={e.id}
                   evaluation={e}
-                  projectName={e.project_id ? (projectMap[e.project_id] || "Unknown Project") : e.dataset_id ? (datasetMap[e.dataset_id] || e.dataset_id) : "Standalone Evaluation"}
+                  projectName={e.evaluation_type === "application" ? (projectMap[e.project_id!] || "Unknown Project") : e.evaluation_type === "dataset" ? (datasetMap[e.dataset_id!] || "Dataset Evaluation") : "Standalone Evaluation"}
                   isRunPending={runEvaluation.isPending && runEvaluation.variables === e.id}
                   onRun={(ev) => handleRun(e.id, ev)}
                   onClick={() => navigate(`/evaluations/${e.id}`)}
@@ -265,7 +257,7 @@ export function EvaluationsPage() {
           <DialogHeader>
             <DialogTitle>New Evaluation</DialogTitle>
             <DialogDescription>
-              Run an evaluation through the AI governance pipeline. Optionally select a project, or evaluate standalone.
+              Run an evaluation through the AI governance pipeline. Select an application or dataset to evaluate.
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleCreate} className="space-y-4 mt-4">
@@ -274,12 +266,12 @@ export function EvaluationsPage() {
               <div className="flex gap-2">
                 <Button
                   type="button"
-                  variant={evalType === "project" ? "default" : "outline"}
+                  variant={evalType === "application" ? "default" : "outline"}
                   size="sm"
                   className="flex-1"
-                  onClick={() => { setEvalType("project"); setDatasetId(""); }}
+                  onClick={() => { setEvalType("application"); setDatasetId(""); }}
                 >
-                  Project
+                  Application
                 </Button>
                 <Button
                   type="button"
@@ -292,7 +284,7 @@ export function EvaluationsPage() {
                 </Button>
               </div>
             </div>
-            {evalType === "project" ? (
+            {evalType === "application" ? (
               <div className="space-y-2">
                 <Label>Project</Label>
                 <Select value={projectId} onValueChange={(v) => setProjectId(v ?? "")}>
@@ -345,7 +337,7 @@ export function EvaluationsPage() {
               <Button type="button" variant="ghost" onClick={() => setDialogOpen(false)}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={createEvaluation.isPending || (evalType === "project" ? !projectId : !datasetId)}>
+              <Button type="submit" disabled={createEvaluation.isPending || (evalType === "application" ? !projectId : !datasetId)}>
                 {createEvaluation.isPending ? "Creating..." : "Create Evaluation"}
               </Button>
             </div>

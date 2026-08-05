@@ -19,5 +19,6 @@ class EvaluationResponse(BaseModel):
     error_message: str | None
     project_id: str | None
     dataset_id: str | None
+    evaluation_type: str
     created_at: str
     updated_at: str
