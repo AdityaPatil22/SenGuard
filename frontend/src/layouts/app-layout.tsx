@@ -163,7 +163,7 @@ export function AppLayout() {
             <Shield className="h-4 w-4 text-primary-foreground" />
           </div>
           <Link to="/" className="text-[15px] font-semibold tracking-tight text-foreground">
-            Sentinel AI
+            SenGuard
           </Link>
         </div>
         <Separator className="bg-sidebar-border" />
@@ -193,7 +193,7 @@ export function AppLayout() {
             <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary">
               <Shield className="h-4 w-4 text-primary-foreground" />
             </div>
-            <span className="text-[15px] font-semibold">Sentinel AI</span>
+            <span className="text-[15px] font-semibold">SenGuard</span>
           </div>
           <SidebarNav onNavigate={() => setMobileOpen(false)} />
         </SheetContent>

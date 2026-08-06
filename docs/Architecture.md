@@ -2,7 +2,7 @@
 
 ## Overview
 
-Sentinel AI follows a standard three-tier architecture:
+SenGuard follows a standard three-tier architecture:
 
 1. **Frontend** — React SPA served by Nginx
 2. **Backend** — FastAPI REST API

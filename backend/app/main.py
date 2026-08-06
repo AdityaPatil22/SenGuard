@@ -59,7 +59,7 @@ async def lifespan(_app: FastAPI):
 
 
 app = FastAPI(
-    title="Sentinel AI",
+    title="SenGuard",
     description="AI Governance Platform",
     version="0.1.0",
     lifespan=lifespan,

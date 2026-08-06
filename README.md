@@ -1,4 +1,4 @@
-# Sentinel AI
+# SenGuard
 
 AI governance platform that evaluates LLM applications before deployment. Run security, quality, and risk assessments on your AI systems using a LangGraph pipeline powered by Google Gemini.
 

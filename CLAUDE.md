@@ -1,4 +1,4 @@
-# Sentinel AI
+# SenGuard
 
 AI governance platform for evaluating LLM applications before deployment.
 
