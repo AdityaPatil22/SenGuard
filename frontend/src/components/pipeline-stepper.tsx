@@ -40,7 +40,7 @@ export function PipelineStepper({ nodes }: PipelineStepperProps) {
                   {status === "failed" && <XCircle className="h-4 w-4 text-destructive" />}
                 </div>
                 <span className={cn(
-                  "text-xs font-medium text-center",
+                  "text-s font-medium text-center",
                   status === "pending" && "text-muted-foreground",
                   status === "running" && "text-warning",
                   status === "completed" && "text-success",

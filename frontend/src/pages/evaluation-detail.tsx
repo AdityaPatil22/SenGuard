@@ -276,8 +276,8 @@ function AnalysisTab({ data }: { data: Record<string, unknown> }) {
                 <ConfidenceBadge confidence="potential-risk" />
                 <span className="text-xs font-medium">{f.description}</span>
               </div>
-              <p className="text-[11px] text-muted-foreground italic">{f.reasoning}</p>
-              <p className="text-[11px] text-muted-foreground">{f.recommendation}</p>
+              <p className="text-[12px] text-muted-foreground italic">{f.reasoning}</p>
+              <p className="text-[12px] text-muted-foreground">{f.recommendation}</p>
             </div>
           ))}
         </div>
