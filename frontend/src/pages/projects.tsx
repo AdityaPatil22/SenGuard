@@ -1,5 +1,6 @@
 import { FolderKanban, Github, Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { useState, useMemo, type FormEvent } from "react";
+import { Link } from "react-router-dom";
 import { toast } from "sonner";
 
 import {
@@ -225,7 +226,11 @@ export function ProjectsPage() {
             <TableBody>
               {filteredProjects.map((p) => (
                 <TableRow key={p.id}>
-                  <TableCell className="font-medium">{p.name}</TableCell>
+                  <TableCell className="font-medium">
+                    <Link to={`/projects/${p.id}`} className="hover:underline underline-offset-4">
+                      {p.name}
+                    </Link>
+                  </TableCell>
                   <TableCell>
                     <Badge variant={STATUS_VARIANT[p.status]}>{p.status}</Badge>
                   </TableCell>
