@@ -6,8 +6,7 @@ import api from "@/services/api";
 import type { ApiResponse, AuthResponse } from "@/types/api";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Spinner } from "@/components/ui/spinner";
-import { ShieldAlert, ShieldCheck } from "lucide-react";
+import { Loader2, ShieldAlert, ShieldCheck } from "lucide-react";
 
 export function AuthCallbackPage() {
   const navigate = useNavigate();
@@ -68,7 +67,7 @@ export function AuthCallbackPage() {
                   Authenticating with GitHub
                 </p>
               </div>
-              <Spinner className="size-6 text-primary" />
+              <Loader2 className="size-6 animate-spin text-primary" />
             </>
           )}
         </CardContent>

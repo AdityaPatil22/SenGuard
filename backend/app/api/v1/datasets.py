@@ -25,10 +25,6 @@ def _serialize(dataset) -> dict:
     }
 
 
-def _get_storage():
-    return get_storage_from_settings()
-
-
 @router.post("")
 async def create_dataset(
     name: str = Form(...),
@@ -37,7 +33,7 @@ async def create_dataset(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    storage = _get_storage()
+    storage = get_storage_from_settings()
     service = DatasetService(db, storage)
     file_data = await file.read() if file else None
     file_name = file.filename if file else None
@@ -58,7 +54,7 @@ async def list_datasets(
     db: AsyncSession = Depends(get_db),
     _current_user: User = Depends(get_current_user),
 ):
-    storage = _get_storage()
+    storage = get_storage_from_settings()
     service = DatasetService(db, storage)
     datasets = await service.list_all(
         skip=skip,
@@ -73,7 +69,7 @@ async def get_dataset(
     db: AsyncSession = Depends(get_db),
     _current_user: User = Depends(get_current_user),
 ):
-    storage = _get_storage()
+    storage = get_storage_from_settings()
     service = DatasetService(db, storage)
     dataset = await service.get(uuid.UUID(dataset_id))
     return success(data=_serialize(dataset), message="Dataset retrieved")
@@ -85,7 +81,7 @@ async def delete_dataset(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    storage = _get_storage()
+    storage = get_storage_from_settings()
     service = DatasetService(db, storage)
     await service.delete(uuid.UUID(dataset_id), current_user)
     return success(message="Dataset deleted")

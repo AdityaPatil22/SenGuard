@@ -4,12 +4,6 @@ export interface ApiResponse<T = unknown> {
   data: T;
 }
 
-export interface AuthTokens {
-  access_token: string;
-  refresh_token: string;
-  token_type: string;
-}
-
 export interface User {
   id: string;
   github_username: string;
@@ -18,14 +12,16 @@ export interface User {
   role: string;
 }
 
-export interface AuthResponse extends AuthTokens {
+export interface AuthResponse {
+  access_token: string;
+  refresh_token: string;
+  token_type: string;
   user: User;
 }
 
 export type ProjectStatus = "draft" | "submitted" | "evaluating" | "evaluated" | "approved" | "rejected";
 export type EvaluationStatus = "pending" | "running" | "completed" | "failed";
-export type ReportStatus =
-  "draft" | "pending_review" | "in_review" | "approved" | "rejected" | "published" | "archived";
+export type ReportStatus = "draft" | "in_review" | "approved" | "rejected";
 
 export interface Project {
   id: string;
@@ -50,7 +46,6 @@ export interface Evaluation {
   error_message: string | null;
   project_id: string | null;
   dataset_id: string | null;
-  reviewer_id: string | null;
   created_at: string;
   updated_at: string;
 }

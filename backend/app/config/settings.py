@@ -11,10 +11,6 @@ class Settings(BaseSettings):
 
     app_env: str = "production"
     app_debug: bool = False
-    app_name: str = "sentinel-ai"
-
-    backend_host: str = "0.0.0.0"
-    backend_port: int = 8000
 
     secret_key: str = "change-me-in-production"
     algorithm: str = "HS256"
@@ -44,9 +40,6 @@ class Settings(BaseSettings):
     def is_development(self) -> bool:
         return self.app_env == "development"
 
-    @property
-    def database_url_sync(self) -> str:
-        return self.database_url.replace("+asyncpg", "+psycopg2")
 
 
 @lru_cache

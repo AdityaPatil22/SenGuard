@@ -18,22 +18,16 @@ import { riskColor, riskLabel } from "@/lib/utils";
 
 const STATUS_VARIANT: Record<ReportStatus, "default" | "secondary" | "destructive" | "success" | "warning"> = {
   draft: "secondary",
-  pending_review: "warning",
   in_review: "warning",
   approved: "success",
   rejected: "destructive",
-  published: "success",
-  archived: "default",
 };
 
 const STATUS_LABEL: Record<ReportStatus, string> = {
   draft: "Draft",
-  pending_review: "Pending Review",
   in_review: "In Review",
   approved: "Approved",
   rejected: "Rejected",
-  published: "Published",
-  archived: "Archived",
 };
 
 function formatDate(iso: string) {
@@ -158,7 +152,7 @@ export function ReportsPage() {
                 <div className="flex items-center gap-4">
                   <div
                     className={`h-10 w-10 rounded-lg flex items-center justify-center shrink-0 ${
-                      r.status === "approved" || r.status === "published"
+                      r.status === "approved"
                         ? "bg-success/10"
                         : r.status === "rejected"
                           ? "bg-destructive/10"
@@ -167,7 +161,7 @@ export function ReportsPage() {
                   >
                     <FileText
                       className={`h-5 w-5 ${
-                        r.status === "approved" || r.status === "published"
+                        r.status === "approved"
                           ? "text-success"
                           : r.status === "rejected"
                             ? "text-destructive"

@@ -13,10 +13,3 @@ class TokenResponse(BaseModel):
 
 class RefreshRequest(BaseModel):
     refresh_token: str
-
-
-class UserResponse(BaseModel):
-    id: str
-    github_username: str
-    email: str | None
-    avatar_url: str | None

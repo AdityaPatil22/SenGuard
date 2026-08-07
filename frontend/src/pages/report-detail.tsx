@@ -27,22 +27,16 @@ import { riskColor, riskLabel } from "@/lib/utils";
 
 const STATUS_VARIANT: Record<ReportStatus, "default" | "secondary" | "destructive" | "success" | "warning"> = {
   draft: "secondary",
-  pending_review: "warning",
   in_review: "warning",
   approved: "success",
   rejected: "destructive",
-  published: "success",
-  archived: "default",
 };
 
 const STATUS_LABEL: Record<ReportStatus, string> = {
   draft: "Draft",
-  pending_review: "Pending Review",
   in_review: "In Review",
   approved: "Approved",
   rejected: "Rejected",
-  published: "Published",
-  archived: "Archived",
 };
 
 export function ReportDetailPage() {

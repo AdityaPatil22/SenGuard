@@ -27,8 +27,3 @@ class ForbiddenError(AppError):
 class BadRequestError(AppError):
     def __init__(self, message: str = "Bad request", errors: list[Any] | None = None):
         super().__init__(message=message, status_code=400, errors=errors)
-
-
-class ConflictError(AppError):
-    def __init__(self, message: str = "Resource already exists"):
-        super().__init__(message=message, status_code=409)

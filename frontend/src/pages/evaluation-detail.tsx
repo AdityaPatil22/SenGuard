@@ -406,12 +406,22 @@ export function EvaluationDetailPage() {
       {isRunning && <PipelineStepper nodes={nodes} />}
 
       {/* Tabbed content */}
-      <Tabs defaultValue="findings">
+      <Tabs defaultValue="report">
         <TabsList>
+          <TabsTrigger value="report">Report</TabsTrigger>
           <TabsTrigger value="findings">Findings</TabsTrigger>
           <TabsTrigger value="analysis">AI Analysis</TabsTrigger>
-          <TabsTrigger value="report">Report</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="report">
+          {evaluation.summary ? (
+            <div className="prose prose-sm dark:prose-invert max-w-none">
+              <ReactMarkdown>{evaluation.summary}</ReactMarkdown>
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground py-8 text-center">No report generated yet.</p>
+          )}
+        </TabsContent>
 
         <TabsContent value="findings">
           {scanners ? (
@@ -426,16 +436,6 @@ export function EvaluationDetailPage() {
             <AnalysisTab data={llmAnalysis} />
           ) : (
             <p className="text-sm text-muted-foreground py-8 text-center">No AI analysis available yet.</p>
-          )}
-        </TabsContent>
-
-        <TabsContent value="report">
-          {evaluation.summary ? (
-            <div className="prose prose-sm dark:prose-invert max-w-none">
-              <ReactMarkdown>{evaluation.summary}</ReactMarkdown>
-            </div>
-          ) : (
-            <p className="text-sm text-muted-foreground py-8 text-center">No report generated yet.</p>
           )}
         </TabsContent>
       </Tabs>

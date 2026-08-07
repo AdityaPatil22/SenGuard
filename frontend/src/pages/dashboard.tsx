@@ -29,12 +29,9 @@ const EVAL_STATUS_VARIANT: Record<string, "default" | "secondary" | "destructive
 
 const REPORT_STATUS_VARIANT: Record<string, "default" | "secondary" | "destructive" | "success" | "warning"> = {
   draft: "secondary",
-  pending_review: "warning",
   in_review: "warning",
   approved: "success",
   rejected: "destructive",
-  published: "success",
-  archived: "secondary",
 };
 
 function formatDate(iso: string) {
@@ -56,10 +53,10 @@ export function DashboardPage() {
       : 0;
 
   const stats = [
-    { label: "Projects", value: projects.length, icon: FolderKanban, href: "/projects", isDecimal: false },
-    { label: "Evaluations", value: evaluations.length, icon: FlaskConical, href: "/evaluations", isDecimal: false },
-    { label: "Reports", value: reports.length, icon: FileText, href: "/reports", isDecimal: false },
-    { label: "Avg Risk", value: parseFloat(avgRisk.toFixed(2)), icon: ShieldAlert, href: "/evaluations", isDecimal: true },
+    { label: "Projects", value: projects.length, icon: FolderKanban, href: "/projects", decimals: 0 },
+    { label: "Evaluations", value: evaluations.length, icon: FlaskConical, href: "/evaluations", decimals: 0 },
+    { label: "Reports", value: reports.length, icon: FileText, href: "/reports", decimals: 0 },
+    { label: "Avg Risk", value: parseFloat(avgRisk.toFixed(2)), icon: ShieldAlert, href: "/evaluations", decimals: 2 },
   ];
 
   // Action-oriented data
@@ -68,7 +65,7 @@ export function DashboardPage() {
   );
 
   const needsReview: Report[] = reports.filter(
-    (r) => r.status === "pending_review" || r.status === "in_review"
+    (r) => r.status === "in_review"
   );
 
   const recentFindings: Evaluation[] = evaluations
@@ -98,7 +95,7 @@ export function DashboardPage() {
                     value={s.value}
                     fontSize={24}
                     fontWeight={600}
-                    places={s.isDecimal ? [1, ".", 0.1, 0.01] : undefined}
+                    decimals={s.decimals}
                   />
                 </div>
               </CardContent>

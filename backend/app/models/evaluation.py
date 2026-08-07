@@ -14,7 +14,6 @@ if TYPE_CHECKING:
     from app.models.dataset import Dataset
     from app.models.project import Project
     from app.models.report import Report
-    from app.models.user import User
 
 
 class EvaluationStatus(enum.StrEnum):
@@ -43,9 +42,6 @@ class Evaluation(Base, UUIDMixin, TimestampMixin):
         UUID(as_uuid=True), ForeignKey("datasets.id", ondelete="SET NULL"), nullable=True
     )
     dataset: Mapped[Dataset | None] = relationship()
-
-    reviewer_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"))
-    reviewer: Mapped[User | None] = relationship(back_populates="reviewed_evaluations", foreign_keys=[reviewer_id])
 
     report: Mapped[Report | None] = relationship(
         back_populates="evaluation", cascade="all, delete-orphan", passive_deletes=True

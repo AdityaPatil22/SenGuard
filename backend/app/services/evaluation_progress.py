@@ -2,9 +2,6 @@ import asyncio
 from datetime import datetime, timezone
 from typing import AsyncGenerator
 
-PIPELINE_NODES = ["deterministic_scan", "llm_analysis", "risk_scoring", "report_generation"]
-
-
 class EvaluationProgress:
     def __init__(self):
         self._events: list[dict] = []

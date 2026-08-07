@@ -21,16 +21,6 @@ class EvaluationRepository(BaseRepository[Evaluation]):
         )
         return list(result.scalars().all())
 
-    async def get_by_dataset(self, dataset_id: uuid.UUID, skip: int = 0, limit: int = 100) -> list[Evaluation]:
-        result = await self.db.execute(
-            select(Evaluation)
-            .where(Evaluation.dataset_id == dataset_id)
-            .order_by(Evaluation.created_at.desc())
-            .offset(skip)
-            .limit(limit)
-        )
-        return list(result.scalars().all())
-
     async def get_by_type(self, evaluation_type: str, skip: int = 0, limit: int = 100) -> list[Evaluation]:
         if evaluation_type == "application":
             condition = Evaluation.project_id.isnot(None)

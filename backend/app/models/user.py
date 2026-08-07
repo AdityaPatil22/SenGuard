@@ -16,7 +16,6 @@ class UserRole(enum.StrEnum):
 
 
 if TYPE_CHECKING:
-    from app.models.evaluation import Evaluation
     from app.models.project import Project
     from app.models.report import Report
 
@@ -34,6 +33,3 @@ class User(Base, UUIDMixin, TimestampMixin):
 
     owned_projects: Mapped[list[Project]] = relationship(back_populates="owner", lazy="raise")
     reviewed_reports: Mapped[list[Report]] = relationship(back_populates="reviewer", lazy="raise")
-    reviewed_evaluations: Mapped[list[Evaluation]] = relationship(
-        back_populates="reviewer", foreign_keys="[Evaluation.reviewer_id]", lazy="raise"
-    )

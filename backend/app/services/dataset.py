@@ -5,14 +5,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.exceptions import NotFoundError
 from app.models.dataset import Dataset
 from app.models.user import User
-from app.repositories.dataset import DatasetRepository
+from app.repositories.base import BaseRepository
 from app.storage.base import StorageBackend
 
 
 class DatasetService:
     def __init__(self, db: AsyncSession, storage: StorageBackend):
         self.db = db
-        self.repo = DatasetRepository(db)
+        self.repo = BaseRepository(Dataset, db)
         self.storage = storage
 
     async def create(
