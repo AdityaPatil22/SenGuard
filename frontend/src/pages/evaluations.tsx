@@ -8,7 +8,7 @@ import {
   Search,
   XCircle,
 } from "lucide-react";
-import { useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
@@ -21,7 +21,8 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useDatasets } from "@/hooks/use-datasets";
-import { useEvaluations, useCreateEvaluation, useRunEvaluation } from "@/hooks/use-evaluations";
+import { PipelineStepper } from "@/components/pipeline-stepper";
+import { useEvaluations, useCreateEvaluation, useRunEvaluation, useEvaluationStream } from "@/hooks/use-evaluations";
 import { useProjects } from "@/hooks/use-projects";
 import type { Evaluation, EvaluationStatus } from "@/types/api";
 import { riskColor, riskLabel } from "@/lib/utils";
@@ -131,6 +132,12 @@ export function EvaluationsPage() {
   const [datasetId, setDatasetId] = useState("");
   const [modelName, setModelName] = useState("");
   const [search, setSearch] = useState("");
+  const [runningEvalId, setRunningEvalId] = useState<string | null>(null);
+  const { nodes, isDone } = useEvaluationStream(runningEvalId ?? undefined, !!runningEvalId);
+
+  useEffect(() => {
+    if (isDone) setRunningEvalId(null);
+  }, [isDone]);
 
   const projectMap = Object.fromEntries(projects.map((p) => [p.id, p.name]));
   const datasetMap = Object.fromEntries(datasets.map((d) => [d.id, d.name]));
@@ -168,7 +175,10 @@ export function EvaluationsPage() {
   function handleRun(id: string, e: React.MouseEvent) {
     e.stopPropagation();
     runEvaluation.mutate(id, {
-      onSuccess: () => toast.success("Evaluation started"),
+      onSuccess: () => {
+        toast.success("Evaluation started");
+        setRunningEvalId(id);
+      },
       onError: () => toast.error("Failed to run evaluation"),
     });
   }
@@ -238,14 +248,18 @@ export function EvaluationsPage() {
               <p className="text-sm text-muted-foreground py-8 text-center">No evaluations match your search.</p>
             ) : (
               filtered.map((e) => (
-                <EvaluationCard
-                  key={e.id}
-                  evaluation={e}
-                  projectName={e.evaluation_type === "application" ? (projectMap[e.project_id!] || "Unknown Project") : e.evaluation_type === "dataset" ? (datasetMap[e.dataset_id!] || "Dataset Evaluation") : "Standalone Evaluation"}
-                  isRunPending={runEvaluation.isPending && runEvaluation.variables === e.id}
-                  onRun={(ev) => handleRun(e.id, ev)}
-                  onClick={() => navigate(`/evaluations/${e.id}`)}
-                />
+                <div key={e.id} className="space-y-2">
+                  <EvaluationCard
+                    evaluation={e}
+                    projectName={e.evaluation_type === "application" ? (projectMap[e.project_id!] || "Unknown Project") : e.evaluation_type === "dataset" ? (datasetMap[e.dataset_id!] || "Dataset Evaluation") : "Standalone Evaluation"}
+                    isRunPending={runEvaluation.isPending && runEvaluation.variables === e.id}
+                    onRun={(ev) => handleRun(e.id, ev)}
+                    onClick={() => navigate(`/evaluations/${e.id}`)}
+                  />
+                  {runningEvalId === e.id && Object.keys(nodes).length > 0 && (
+                    <PipelineStepper nodes={nodes} />
+                  )}
+                </div>
               ))
             )}
           </div>
