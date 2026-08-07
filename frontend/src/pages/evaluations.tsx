@@ -168,7 +168,7 @@ export function EvaluationsPage() {
   function handleRun(id: string, e: React.MouseEvent) {
     e.stopPropagation();
     runEvaluation.mutate(id, {
-      onSuccess: () => toast.success("Evaluation completed"),
+      onSuccess: () => toast.success("Evaluation started"),
       onError: () => toast.error("Failed to run evaluation"),
     });
   }

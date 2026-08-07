@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.dependencies import get_current_user
 from app.auth.jwt import decode_token
-from app.core.exceptions import NotFoundError, UnauthorizedError
+from app.core.exceptions import UnauthorizedError
 from app.core.response import success
 from app.db.session import async_session, get_db
 from app.models.evaluation import EvaluationStatus

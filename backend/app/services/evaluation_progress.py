@@ -18,26 +18,26 @@ class EvaluationProgress:
             waiter.set()
 
     def start_node(self, name: str):
-        self._emit({"type": "node_start", "node": name})
+        self._emit({"type": "node:start", "node": name})
 
     def complete_node(self, name: str):
-        self._emit({"type": "node_complete", "node": name})
+        self._emit({"type": "node:complete", "node": name})
 
     def fail_node(self, name: str, error: str):
-        self._emit({"type": "node_fail", "node": name, "error": error})
+        self._emit({"type": "node:failed", "node": name, "error": error})
 
     def complete(self):
-        self._emit({"type": "complete"})
+        self._emit({"type": "evaluation:complete"})
         self._done.set()
 
     def fail(self, error: str):
-        self._emit({"type": "fail", "error": error})
+        self._emit({"type": "evaluation:failed", "error": error})
         self._done.set()
 
     async def stream(self) -> AsyncGenerator[dict, None]:
         index = 0
         keepalive_interval = 30
-        last_keepalive = asyncio.get_event_loop().time()
+        last_keepalive = asyncio.get_running_loop().time()
 
         while True:
             while index < len(self._events):
@@ -53,7 +53,7 @@ class EvaluationProgress:
             try:
                 await asyncio.wait_for(waiter.wait(), timeout=keepalive_interval)
             except asyncio.TimeoutError:
-                now = asyncio.get_event_loop().time()
+                now = asyncio.get_running_loop().time()
                 if now - last_keepalive >= keepalive_interval:
                     yield {"type": "keepalive", "timestamp": datetime.now(timezone.utc).isoformat()}
                     last_keepalive = now

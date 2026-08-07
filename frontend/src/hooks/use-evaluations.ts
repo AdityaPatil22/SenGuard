@@ -21,14 +21,20 @@ export function useCreateEvaluation() {
 }
 
 export function useRunEvaluation() {
+  const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => runEvaluation(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["evaluations"] });
+    },
   });
 }
 
 export function useEvaluationStream(evaluationId: string | undefined, enabled: boolean) {
-  const [nodes, setNodes] = useState<Record<string, NodeStatus>>({});
-  const [isDone, setIsDone] = useState(false);
+  const [state, setState] = useState<{ nodes: Record<string, NodeStatus>; isDone: boolean }>({
+    nodes: {},
+    isDone: false,
+  });
   const qc = useQueryClient();
   const esRef = useRef<EventSource | null>(null);
 
@@ -38,7 +44,13 @@ export function useEvaluationStream(evaluationId: string | undefined, enabled: b
   }, [qc]);
 
   useEffect(() => {
-    if (!enabled || !evaluationId || isDone) return;
+    if (enabled) {
+      setState({ nodes: {}, isDone: false });
+    }
+  }, [enabled]);
+
+  useEffect(() => {
+    if (!enabled || !evaluationId || state.isDone) return;
 
     const token = localStorage.getItem("access_token");
     if (!token) return;
@@ -53,13 +65,13 @@ export function useEvaluationStream(evaluationId: string | undefined, enabled: b
       const event = JSON.parse(e.data);
 
       if (event.type === "node:start") {
-        setNodes((prev) => ({ ...prev, [event.node]: "running" }));
+        setState((prev) => ({ ...prev, nodes: { ...prev.nodes, [event.node]: "running" } }));
       } else if (event.type === "node:complete") {
-        setNodes((prev) => ({ ...prev, [event.node]: "completed" }));
+        setState((prev) => ({ ...prev, nodes: { ...prev.nodes, [event.node]: "completed" } }));
       } else if (event.type === "node:failed") {
-        setNodes((prev) => ({ ...prev, [event.node]: "failed" }));
+        setState((prev) => ({ ...prev, nodes: { ...prev.nodes, [event.node]: "failed" } }));
       } else if (event.type === "evaluation:complete" || event.type === "evaluation:failed") {
-        setIsDone(true);
+        setState((prev) => ({ ...prev, isDone: true }));
         invalidateQueries();
         es.close();
       }
@@ -73,7 +85,7 @@ export function useEvaluationStream(evaluationId: string | undefined, enabled: b
     return () => {
       es.close();
     };
-  }, [evaluationId, enabled, isDone, invalidateQueries]);
+  }, [evaluationId, enabled, state.isDone, invalidateQueries]);
 
-  return { nodes, isDone };
+  return { nodes: state.nodes, isDone: state.isDone };
 }
