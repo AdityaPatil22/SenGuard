@@ -77,11 +77,6 @@ class EvaluationService:
     async def run(self, evaluation_id: uuid.UUID) -> Evaluation:
         evaluation = await self.get(evaluation_id)
 
-        if evaluation.status == EvaluationStatus.RUNNING:
-            raise BadRequestError("Evaluation already running")
-
-        await self.repo.update(evaluation, {"status": EvaluationStatus.RUNNING})
-
         try:
             project = await self.db.get(Project, evaluation.project_id) if evaluation.project_id else None
 
@@ -106,6 +101,7 @@ class EvaluationService:
             try:
                 result = await get_evaluation_workflow().ainvoke(
                     {
+                        "evaluation_id": str(evaluation.id),
                         "project_id": str(evaluation.project_id),
                         "project_name": project.name if project else "Unknown",
                         "project_description": project.description or "" if project else "",

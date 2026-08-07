@@ -30,7 +30,8 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useEvaluations } from "@/hooks/use-evaluations";
+import { PipelineStepper } from "@/components/pipeline-stepper";
+import { useEvaluations, useEvaluationStream } from "@/hooks/use-evaluations";
 import { useProjects } from "@/hooks/use-projects";
 import type { EvaluationStatus } from "@/types/api";
 import { riskColor, riskLabel } from "@/lib/utils";
@@ -311,6 +312,7 @@ export function EvaluationDetailPage() {
   const config = STATUS_CONFIG[status] || STATUS_CONFIG.pending;
   const StatusIcon = config.icon;
   const isRunning = status === "running";
+  const { nodes } = useEvaluationStream(evaluation?.id, isRunning);
 
   const nodeResults = evaluation?.node_results as Record<string, unknown> | null;
   const scanners = nodeResults?.scanners as Record<string, unknown> | undefined;
@@ -401,18 +403,7 @@ export function EvaluationDetailPage() {
       )}
 
       {/* Pipeline stepper */}
-      {isRunning && (
-        <div className="rounded-lg border border-warning/20 bg-warning/5 p-4 space-y-3">
-          <div className="flex items-center gap-2">
-            <Loader2 className="h-4 w-4 text-warning animate-spin" />
-            <p className="text-sm font-medium">Pipeline running&hellip;</p>
-          </div>
-          <div className="h-1.5 rounded-full bg-muted overflow-hidden">
-            <div className="h-full w-1/3 rounded-full bg-warning animate-pulse" />
-          </div>
-          <p className="text-xs text-muted-foreground text-center">This typically takes 1-3 minutes. This page updates automatically.</p>
-        </div>
-      )}
+      {isRunning && <PipelineStepper nodes={nodes} />}
 
       {/* Tabbed content */}
       <Tabs defaultValue="findings">

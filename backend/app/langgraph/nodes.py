@@ -6,6 +6,7 @@ from google import genai
 from app.config.settings import get_settings
 from app.langgraph.state import EvaluationState
 from app.scanners import ScanResults, compute_base_risk_score, run_all_scanners
+from app.services.evaluation_progress import progress_store
 
 logger = logging.getLogger(__name__)
 
@@ -42,12 +43,20 @@ async def _ask_gemini_json(prompt: str) -> dict:
 
 
 async def deterministic_scan(state: EvaluationState) -> EvaluationState:
+    eval_id = state.get("evaluation_id")
+    progress = progress_store.get(eval_id) if eval_id else None
+    if progress:
+        progress.start_node("deterministic_scan")
+
     repo_files = state.get("repo_files") or []
     dataset_samples = state.get("dataset_samples") or []
     repo_path = state.get("repo_path")
 
     results: ScanResults = await run_all_scanners(repo_files, dataset_samples, repo_path)
     state["scanner_results"] = results.to_dict()
+
+    if progress:
+        progress.complete_node("deterministic_scan")
     return state
 
 
@@ -73,6 +82,11 @@ def _format_dataset_context(state: EvaluationState) -> str:
 
 
 async def llm_analysis(state: EvaluationState) -> EvaluationState:
+    eval_id = state.get("evaluation_id")
+    progress = progress_store.get(eval_id) if eval_id else None
+    if progress:
+        progress.start_node("llm_analysis")
+
     scanner_results = state.get("scanner_results", {})
     findings = scanner_results.get("findings", [])
     summary = scanner_results.get("summary", {})
@@ -139,10 +153,17 @@ Return JSON with:
         }
         state.setdefault("errors", []).append(f"AI analysis failed: {e}")
 
+    if progress:
+        progress.complete_node("llm_analysis")
     return state
 
 
 async def risk_scoring(state: EvaluationState) -> EvaluationState:
+    eval_id = state.get("evaluation_id")
+    progress = progress_store.get(eval_id) if eval_id else None
+    if progress:
+        progress.start_node("risk_scoring")
+
     scanner_results = state.get("scanner_results", {})
     llm_analysis = state.get("llm_analysis_result", {})
     findings = scanner_results.get("findings", [])
@@ -217,10 +238,17 @@ Return JSON with:
         }
         state.setdefault("errors", []).append(f"Risk scoring AI failed: {e}")
 
+    if progress:
+        progress.complete_node("risk_scoring")
     return state
 
 
 async def report_generation(state: EvaluationState) -> EvaluationState:
+    eval_id = state.get("evaluation_id")
+    progress = progress_store.get(eval_id) if eval_id else None
+    if progress:
+        progress.start_node("report_generation")
+
     scanner_results = state.get("scanner_results", {})
     llm_analysis_result = state.get("llm_analysis_result", {})
     risk_breakdown = state.get("risk_breakdown", {})
@@ -272,4 +300,6 @@ Keep it concise and actionable. Under 800 words."""
         )
         state.setdefault("errors", []).append(f"Report generation failed: {e}")
 
+    if progress:
+        progress.complete_node("report_generation")
     return state

@@ -1,17 +1,43 @@
+import asyncio
+import json
 import uuid
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Response
+from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.dependencies import get_current_user
+from app.auth.jwt import decode_token
+from app.core.exceptions import UnauthorizedError
 from app.core.response import success
-from app.db.session import get_db
+from app.db.session import async_session, get_db
+from app.models.evaluation import EvaluationStatus
 from app.models.user import User
 from app.schemas.evaluation import EvaluationCreate
 from app.services.audit import create_audit_log
 from app.services.evaluation import EvaluationService
+from app.services.evaluation_progress import EvaluationProgress, progress_store
 
 router = APIRouter(prefix="/evaluations", tags=["evaluations"])
+
+
+async def _run_evaluation_background(evaluation_id: str):
+    progress = progress_store.get(evaluation_id)
+    if not progress:
+        return
+
+    async with async_session() as session:
+        try:
+            service = EvaluationService(session)
+            await service.run(uuid.UUID(evaluation_id))
+            await session.commit()
+            progress.complete()
+        except Exception as e:
+            await session.rollback()
+            progress.fail(str(e))
+        finally:
+            await asyncio.sleep(60)
+            progress_store.pop(evaluation_id, None)
 
 
 def _serialize(evaluation) -> dict:
@@ -90,6 +116,18 @@ async def run_evaluation(
     current_user: User = Depends(get_current_user),
 ):
     service = EvaluationService(db)
+    evaluation = await service.get(uuid.UUID(evaluation_id))
+
+    if evaluation.status == EvaluationStatus.RUNNING:
+        return Response(
+            content=json.dumps(
+                success(data=_serialize(evaluation), message="Evaluation already running")
+            ),
+            media_type="application/json",
+            status_code=202,
+        )
+
+    evaluation = await service.repo.update(evaluation, {"status": EvaluationStatus.RUNNING})
 
     await create_audit_log(
         db,
@@ -99,8 +137,16 @@ async def run_evaluation(
         user_id=current_user.id,
     )
 
-    evaluation = await service.run(uuid.UUID(evaluation_id))
-    return success(data=_serialize(evaluation), message="Evaluation completed")
+    progress = EvaluationProgress()
+    progress_store[evaluation_id] = progress
+
+    asyncio.create_task(_run_evaluation_background(evaluation_id))
+
+    return Response(
+        content=json.dumps(success(data=_serialize(evaluation), message="Evaluation started")),
+        media_type="application/json",
+        status_code=202,
+    )
 
 
 @router.get("/{evaluation_id}/status")
@@ -115,3 +161,30 @@ async def get_evaluation_status(
         data={"id": str(evaluation.id), "status": evaluation.status},
         message="Evaluation status",
     )
+
+
+@router.get("/{evaluation_id}/stream")
+async def stream_evaluation(
+    evaluation_id: str,
+    token: str = Query(...),
+):
+    try:
+        decode_token(token, expected_type="access")
+    except UnauthorizedError:
+        return Response(
+            content=json.dumps({"success": False, "message": "Unauthorized", "data": None}),
+            media_type="application/json",
+            status_code=401,
+        )
+
+    progress = progress_store.get(evaluation_id)
+
+    async def event_generator():
+        if not progress:
+            yield f"data: {json.dumps({'type': 'evaluation:complete'})}\n\n"
+            return
+
+        async for event in progress.stream():
+            yield f"data: {json.dumps(event)}\n\n"
+
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
