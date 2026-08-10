@@ -69,7 +69,6 @@ class ProjectService:
         if eval_ids:
             await self.db.execute(delete(Report).where(Report.evaluation_id.in_(eval_ids)))
             await self.db.execute(delete(Evaluation).where(Evaluation.project_id == project_id))
-        await self.db.execute(delete(Dataset).where(Dataset.project_id == project_id))
         await self.repo.delete(project)
 
     def _check_owner(self, project: Project, user: User) -> None:
