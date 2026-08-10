@@ -38,7 +38,7 @@ class LocalStorage(StorageBackend):
         full_path = self._safe_path(path)
         full_path.parent.mkdir(parents=True, exist_ok=True)
         full_path.write_bytes(data)
-        return str(full_path)
+        return path
 
     async def load(self, path: str) -> bytes:
         return self._safe_path(path).read_bytes()
