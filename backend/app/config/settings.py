@@ -1,6 +1,8 @@
 from functools import lru_cache
 from pathlib import Path
 
+from cryptography import fernet
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 ROOT_DIR = Path(__file__).resolve().parent.parent.parent.parent
@@ -35,6 +37,8 @@ class Settings(BaseSettings):
     supabase_url: str = ""
     supabase_service_key: str = ""
     supabase_storage_bucket: str = "datasets"
+
+    fernet_key: str = ""
 
     @property
     def is_development(self) -> bool:

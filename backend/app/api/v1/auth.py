@@ -9,7 +9,7 @@ from app.db.session import get_db
 from app.middleware.rate_limit import limiter
 from app.models.user import User
 from app.schemas.auth import GitHubCallbackRequest, RefreshRequest
-from app.services.auth import AuthService
+from app.services.auth import AuthService, decrypt_token
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -61,12 +61,14 @@ async def list_github_repos(
     if not current_user.github_token:
         raise BadRequestError("No GitHub token — please re-login")
 
+    gh_token = decrypt_token(current_user.github_token)
+
     async with httpx.AsyncClient() as client:
         resp = await client.get(
             "https://api.github.com/user/repos",
             params={"sort": "updated", "per_page": per_page, "page": page, "type": "owner"},
             headers={
-                "Authorization": f"Bearer {current_user.github_token}",
+                "Authorization": f"Bearer {gh_token}",
                 "Accept": "application/json",
             },
         )

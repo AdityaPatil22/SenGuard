@@ -2,6 +2,7 @@ import uuid
 from urllib.parse import urlencode
 
 import httpx
+from cryptography.fernet import Fernet
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.jwt import create_access_token, create_refresh_token, decode_token
@@ -16,6 +17,16 @@ settings = get_settings()
 GITHUB_AUTHORIZE_URL = "https://github.com/login/oauth/authorize"
 GITHUB_TOKEN_URL = "https://github.com/login/oauth/access_token"
 GITHUB_API_URL = "https://api.github.com"
+
+cipher = Fernet(settings.fernet_key.encode())
+
+
+def encrypt_token(token: str) -> str:
+    return cipher.encrypt(token.encode()).decode()
+
+
+def decrypt_token(token: str) -> str:
+    return cipher.decrypt(token.encode()).decode()
 
 
 class AuthService:
@@ -40,7 +51,7 @@ class AuthService:
             user.github_username = gh_user["login"]
             user.email = gh_user.get("email")
             user.avatar_url = gh_user.get("avatar_url")
-            user.github_token = gh_token
+            user.github_token = encrypt_token(gh_token)
             if (
                 settings.admin_github_username
                 and gh_user["login"] == settings.admin_github_username
@@ -59,7 +70,7 @@ class AuthService:
                 github_username=gh_user["login"],
                 email=gh_user.get("email"),
                 avatar_url=gh_user.get("avatar_url"),
-                github_token=gh_token,
+                github_token=encrypt_token(gh_token),
                 role=role,
             )
             user = await self.user_repo.create(user)
