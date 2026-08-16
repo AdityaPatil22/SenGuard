@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.dependencies import get_current_user
 from app.auth.jwt import decode_token
-from app.core.exceptions import UnauthorizedError
+from app.core.exceptions import BadRequestError, UnauthorizedError
 from app.core.response import success
 from app.db.session import async_session, get_db
 from app.models.evaluation import EvaluationStatus
@@ -127,7 +127,21 @@ async def run_evaluation(
             status_code=202,
         )
 
-    evaluation = await service.repo.update(evaluation, {"status": EvaluationStatus.RUNNING})
+    if evaluation.status in (EvaluationStatus.COMPLETED, EvaluationStatus.FAILED):
+        raise BadRequestError("Evaluation already finished; create a new evaluation to re-run it")
+
+    claimed = await service.repo.claim_for_run(evaluation.id)
+    if claimed is None:
+        # Lost the race to another concurrent request; report its outcome instead of re-running.
+        evaluation = await service.get(uuid.UUID(evaluation_id))
+        return Response(
+            content=json.dumps(
+                success(data=_serialize(evaluation), message="Evaluation already running")
+            ),
+            media_type="application/json",
+            status_code=202,
+        )
+    evaluation = claimed
 
     await create_audit_log(
         db,

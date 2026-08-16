@@ -1,9 +1,9 @@
 import uuid
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.evaluation import Evaluation
+from app.models.evaluation import Evaluation, EvaluationStatus
 from app.repositories.base import BaseRepository
 
 
@@ -11,33 +11,38 @@ class EvaluationRepository(BaseRepository[Evaluation]):
     def __init__(self, db: AsyncSession):
         super().__init__(Evaluation, db)
 
-    async def get_by_project(self, project_id: uuid.UUID, skip: int = 0, limit: int = 100) -> list[Evaluation]:
+    async def claim_for_run(self, evaluation_id: uuid.UUID) -> Evaluation | None:
+        """Atomically flip PENDING -> RUNNING. Returns None if another request already claimed it."""
         result = await self.db.execute(
-            select(Evaluation)
-            .where(Evaluation.project_id == project_id)
-            .order_by(Evaluation.created_at.desc())
-            .offset(skip)
-            .limit(limit)
+            update(Evaluation)
+            .where(Evaluation.id == evaluation_id, Evaluation.status == EvaluationStatus.PENDING)
+            .values(status=EvaluationStatus.RUNNING)
+            .returning(Evaluation)
         )
-        return list(result.scalars().all())
+        await self.db.flush()
+        return result.scalar_one_or_none()
 
-    async def get_by_type(self, evaluation_type: str, skip: int = 0, limit: int = 100) -> list[Evaluation]:
+    async def get_filtered(
+        self,
+        project_id: uuid.UUID | None = None,
+        status: str | None = None,
+        evaluation_type: str | None = None,
+        skip: int = 0,
+        limit: int = 100,
+    ) -> list[Evaluation]:
+        conditions = []
+        if project_id:
+            conditions.append(Evaluation.project_id == project_id)
+        if status:
+            conditions.append(Evaluation.status == status)
         if evaluation_type == "application":
-            condition = Evaluation.project_id.isnot(None)
+            conditions.append(Evaluation.project_id.isnot(None))
         elif evaluation_type == "dataset":
-            condition = Evaluation.dataset_id.isnot(None)
-        else:
-            return await self.get_all(skip, limit)
+            conditions.append(Evaluation.dataset_id.isnot(None))
 
-        result = await self.db.execute(
-            select(Evaluation).where(condition).order_by(Evaluation.created_at.desc()).offset(skip).limit(limit)
-        )
-        return list(result.scalars().all())
-
-    async def get_by_status(self, status: str, skip: int = 0, limit: int = 100) -> list[Evaluation]:
         result = await self.db.execute(
             select(Evaluation)
-            .where(Evaluation.status == status)
+            .where(*conditions)
             .order_by(Evaluation.created_at.desc())
             .offset(skip)
             .limit(limit)

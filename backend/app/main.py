@@ -25,6 +25,7 @@ def _sync_schema(conn):
     from sqlalchemy import inspect as sa_inspect
 
     inspector = sa_inspect(conn)
+    quote = conn.dialect.identifier_preparer.quote
 
     # add missing enum values
     for table in Base.metadata.tables.values():
@@ -32,10 +33,12 @@ def _sync_schema(conn):
             if not isinstance(col.type, SAEnum) or not col.type.enums:
                 continue
             pg_type_name = col.type.name or f"{table.name}_{col.name}"
-            existing = {row[0] for row in conn.execute(text(f"SELECT unnest(enum_range(NULL::{pg_type_name}))::text"))}
+            quoted_type = quote(pg_type_name)
+            existing = {row[0] for row in conn.execute(text(f"SELECT unnest(enum_range(NULL::{quoted_type}))::text"))}
             for val in col.type.enums:
                 if val not in existing:
-                    conn.execute(text(f"ALTER TYPE {pg_type_name} ADD VALUE IF NOT EXISTS '{val}'"))
+                    escaped_val = val.replace("'", "''")
+                    conn.execute(text(f"ALTER TYPE {quoted_type} ADD VALUE IF NOT EXISTS '{escaped_val}'"))
 
     # add missing columns
     for table_name, table in Base.metadata.tables.items():
@@ -46,7 +49,9 @@ def _sync_schema(conn):
             if col.name in existing:
                 continue
             col_type = col.type.compile(conn.dialect)
-            conn.execute(text(f'ALTER TABLE {table_name} ADD COLUMN IF NOT EXISTS "{col.name}" {col_type}'))
+            conn.execute(
+                text(f"ALTER TABLE {quote(table_name)} ADD COLUMN IF NOT EXISTS {quote(col.name)} {col_type}")
+            )
 
 
 @asynccontextmanager

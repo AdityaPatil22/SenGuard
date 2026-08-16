@@ -1,7 +1,7 @@
+import json
 import uuid
 
-from fastapi import APIRouter, Depends, Query
-from fastapi.responses import JSONResponse
+from fastapi import APIRouter, Depends, Query, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.dependencies import get_current_user, require_roles
@@ -75,7 +75,8 @@ async def export_report(
 ):
     service = ReportService(db)
     report_data = await service.export_json(uuid.UUID(report_id))
-    return JSONResponse(
-        content=report_data,
+    return Response(
+        content=json.dumps(report_data),
+        media_type="application/octet-stream",
         headers={"Content-Disposition": f'attachment; filename="report-{report_id[:8]}.json"'},
     )

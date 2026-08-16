@@ -2,9 +2,9 @@ import uuid
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.exceptions import NotFoundError
+from app.core.exceptions import ForbiddenError, NotFoundError
 from app.models.dataset import Dataset
-from app.models.user import User
+from app.models.user import User, UserRole
 from app.repositories.base import BaseRepository
 from app.storage.base import StorageBackend
 
@@ -40,6 +40,7 @@ class DatasetService:
             description=description,
             file_path=file_path,
             record_count=record_count,
+            owner_id=user.id,
         )
         return await self.repo.create(dataset)
 
@@ -58,6 +59,9 @@ class DatasetService:
 
     async def delete(self, dataset_id: uuid.UUID, user: User) -> None:
         dataset = await self.get(dataset_id)
+
+        if user.role != UserRole.ADMIN and (dataset.owner_id is None or dataset.owner_id != user.id):
+            raise ForbiddenError("Only the dataset owner can delete this dataset")
 
         if dataset.file_path and await self.storage.exists(dataset.file_path):
             await self.storage.delete(dataset.file_path)

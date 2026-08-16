@@ -58,7 +58,7 @@ class ProjectService:
     ) -> Project:
         project = await self.get(project_id)
         self._check_owner(project, user)
-        return await self.repo.update(project, {k: v for k, v in data.items() if v is not None})
+        return await self.repo.update(project, data)
 
     async def delete(self, project_id: uuid.UUID, user: User) -> None:
         project = await self.get(project_id)

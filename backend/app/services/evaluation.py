@@ -66,16 +66,18 @@ class EvaluationService:
         skip: int = 0,
         limit: int = 100,
     ) -> list[Evaluation]:
-        if project_id:
-            return await self.repo.get_by_project(project_id, skip, limit)
-        if evaluation_type:
-            return await self.repo.get_by_type(evaluation_type, skip, limit)
-        if status:
-            return await self.repo.get_by_status(status, skip, limit)
-        return await self.repo.get_all(skip, limit)
+        return await self.repo.get_filtered(
+            project_id=project_id,
+            status=status,
+            evaluation_type=evaluation_type,
+            skip=skip,
+            limit=limit,
+        )
 
     async def run(self, evaluation_id: uuid.UUID) -> Evaluation:
         evaluation = await self.get(evaluation_id)
+        if evaluation.status != EvaluationStatus.RUNNING:
+            raise BadRequestError(f"Evaluation {evaluation_id} is {evaluation.status}, expected RUNNING")
 
         try:
             project = await self.db.get(Project, evaluation.project_id) if evaluation.project_id else None
