@@ -1,9 +1,11 @@
 import uuid
 
-from sqlalchemy import select, update
+from sqlalchemy import or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.dataset import Dataset
 from app.models.evaluation import Evaluation, EvaluationStatus
+from app.models.project import Project
 from app.repositories.base import BaseRepository
 
 
@@ -27,6 +29,7 @@ class EvaluationRepository(BaseRepository[Evaluation]):
         project_id: uuid.UUID | None = None,
         status: str | None = None,
         evaluation_type: str | None = None,
+        owner_id: uuid.UUID | None = None,
         skip: int = 0,
         limit: int = 100,
     ) -> list[Evaluation]:
@@ -40,11 +43,14 @@ class EvaluationRepository(BaseRepository[Evaluation]):
         elif evaluation_type == "dataset":
             conditions.append(Evaluation.dataset_id.isnot(None))
 
+        query = select(Evaluation)
+        if owner_id is not None:
+            query = query.outerjoin(Project, Evaluation.project_id == Project.id).outerjoin(
+                Dataset, Evaluation.dataset_id == Dataset.id
+            )
+            conditions.append(or_(Project.owner_id == owner_id, Dataset.owner_id == owner_id))
+
         result = await self.db.execute(
-            select(Evaluation)
-            .where(*conditions)
-            .order_by(Evaluation.created_at.desc())
-            .offset(skip)
-            .limit(limit)
+            query.where(*conditions).order_by(Evaluation.created_at.desc()).offset(skip).limit(limit)
         )
         return list(result.scalars().all())

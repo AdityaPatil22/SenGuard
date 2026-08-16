@@ -41,7 +41,7 @@ class Evaluation(Base, UUIDMixin, TimestampMixin):
     dataset_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("datasets.id", ondelete="SET NULL"), nullable=True
     )
-    dataset: Mapped[Dataset | None] = relationship()
+    dataset: Mapped[Dataset | None] = relationship(lazy="raise")
 
     report: Mapped[Report | None] = relationship(
         back_populates="evaluation", cascade="all, delete-orphan", passive_deletes=True

@@ -58,4 +58,7 @@ class EvaluationProgress:
                 self._waiters.remove(waiter)
 
 
+# ponytail: in-memory, single-process only — the worker that starts an evaluation must be the
+# same one serving its /stream request, and progress is lost on restart. Requires running with a
+# single Uvicorn worker (no --workers > 1). Upgrade to Redis pub/sub if multi-worker is needed.
 progress_store: dict[str, EvaluationProgress] = {}

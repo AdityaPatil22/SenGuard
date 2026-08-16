@@ -120,9 +120,13 @@ SOURCE_EXTENSIONS = {
 }
 
 
-async def clone_repo(repo_url: str, dest: str | None = None) -> str:
+async def clone_repo(repo_url: str, token: str | None = None, dest: str | None = None) -> str:
     if dest is None:
         dest = tempfile.mkdtemp(prefix="sentinel_repo_")
+
+    clone_url = repo_url
+    if token and "github.com" in repo_url:
+        clone_url = repo_url.replace("https://", f"https://x-access-token:{token}@")
 
     proc = await asyncio.create_subprocess_exec(
         "git",
@@ -130,7 +134,7 @@ async def clone_repo(repo_url: str, dest: str | None = None) -> str:
         "--depth",
         "1",
         "--single-branch",
-        repo_url,
+        clone_url,
         dest,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
@@ -138,7 +142,10 @@ async def clone_repo(repo_url: str, dest: str | None = None) -> str:
     _, stderr = await asyncio.wait_for(proc.communicate(), timeout=120)
 
     if proc.returncode != 0:
-        raise RuntimeError(f"git clone failed: {stderr.decode().strip()}")
+        message = stderr.decode().strip()
+        if token:
+            message = message.replace(token, "***")
+        raise RuntimeError(f"git clone failed: {message}")
 
     return dest
 

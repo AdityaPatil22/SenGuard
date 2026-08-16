@@ -64,15 +64,22 @@ async def list_github_repos(
     gh_token = decrypt_token(current_user.github_token)
 
     async with httpx.AsyncClient() as client:
-        resp = await client.get(
-            "https://api.github.com/user/repos",
-            params={"sort": "updated", "per_page": per_page, "page": page, "type": "owner"},
-            headers={
-                "Authorization": f"Bearer {gh_token}",
-                "Accept": "application/json",
-            },
-        )
-        resp.raise_for_status()
+        try:
+            resp = await client.get(
+                "https://api.github.com/user/repos",
+                params={"sort": "updated", "per_page": per_page, "page": page, "type": "owner"},
+                headers={
+                    "Authorization": f"Bearer {gh_token}",
+                    "Accept": "application/json",
+                },
+            )
+            resp.raise_for_status()
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code == 401:
+                raise BadRequestError("GitHub token expired — please re-login") from None
+            if e.response.status_code == 403:
+                raise BadRequestError("GitHub API rate limit exceeded — try again later") from None
+            raise BadRequestError("Failed to fetch GitHub repositories") from None
 
     repos = [
         {

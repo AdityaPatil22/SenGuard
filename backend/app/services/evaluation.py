@@ -3,12 +3,14 @@ import uuid
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.exceptions import BadRequestError, NotFoundError
+from app.core.exceptions import BadRequestError, ForbiddenError, NotFoundError
 from app.langgraph.graph import get_evaluation_workflow
 from app.models.dataset import Dataset
 from app.models.evaluation import Evaluation, EvaluationStatus
 from app.models.project import Project
+from app.models.user import User, UserRole
 from app.repositories.evaluation import EvaluationRepository
+from app.services.auth import decrypt_token
 from app.services.github import cleanup_repo, clone_repo, extract_key_files
 from app.services.report import ReportService
 from app.storage.base import get_storage_from_settings
@@ -58,8 +60,27 @@ class EvaluationService:
             raise NotFoundError("Evaluation not found")
         return evaluation
 
+    async def get_owned(self, evaluation_id: uuid.UUID, user: User) -> Evaluation:
+        evaluation = await self.get(evaluation_id)
+        await self._check_owner(evaluation, user)
+        return evaluation
+
+    async def _check_owner(self, evaluation: Evaluation, user: User) -> None:
+        if user.role == UserRole.ADMIN:
+            return
+        owner_id = None
+        if evaluation.project_id:
+            project = await self.db.get(Project, evaluation.project_id)
+            owner_id = project.owner_id if project else None
+        elif evaluation.dataset_id:
+            dataset = await self.db.get(Dataset, evaluation.dataset_id)
+            owner_id = dataset.owner_id if dataset else None
+        if owner_id != user.id:
+            raise ForbiddenError("Not authorized to access this evaluation")
+
     async def list_all(
         self,
+        user: User,
         project_id: uuid.UUID | None = None,
         status: str | None = None,
         evaluation_type: str | None = None,
@@ -70,6 +91,7 @@ class EvaluationService:
             project_id=project_id,
             status=status,
             evaluation_type=evaluation_type,
+            owner_id=None if user.role == UserRole.ADMIN else user.id,
             skip=skip,
             limit=limit,
         )
@@ -95,7 +117,11 @@ class EvaluationService:
             repo_path: str | None = None
             if project and project.repo_url:
                 try:
-                    repo_path = await clone_repo(project.repo_url)
+                    token = None
+                    owner = await self.db.get(User, project.owner_id) if project.owner_id else None
+                    if owner and owner.github_token:
+                        token = decrypt_token(owner.github_token)
+                    repo_path = await clone_repo(project.repo_url, token=token)
                     repo_files = extract_key_files(repo_path)
                 except Exception as e:
                     logger.warning("Failed to clone repo %s: %s", project.repo_url, e)

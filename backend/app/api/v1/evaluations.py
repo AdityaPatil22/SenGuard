@@ -85,10 +85,11 @@ async def list_evaluations(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
-    _current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
     service = EvaluationService(db)
     evaluations = await service.list_all(
+        current_user,
         project_id=uuid.UUID(project_id) if project_id else None,
         status=status,
         evaluation_type=evaluation_type,
@@ -102,10 +103,10 @@ async def list_evaluations(
 async def get_evaluation(
     evaluation_id: str,
     db: AsyncSession = Depends(get_db),
-    _current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
     service = EvaluationService(db)
-    evaluation = await service.get(uuid.UUID(evaluation_id))
+    evaluation = await service.get_owned(uuid.UUID(evaluation_id), current_user)
     return success(data=_serialize(evaluation), message="Evaluation retrieved")
 
 
@@ -116,7 +117,7 @@ async def run_evaluation(
     current_user: User = Depends(get_current_user),
 ):
     service = EvaluationService(db)
-    evaluation = await service.get(uuid.UUID(evaluation_id))
+    evaluation = await service.get_owned(uuid.UUID(evaluation_id), current_user)
 
     if evaluation.status == EvaluationStatus.RUNNING:
         return Response(
@@ -167,10 +168,10 @@ async def run_evaluation(
 async def get_evaluation_status(
     evaluation_id: str,
     db: AsyncSession = Depends(get_db),
-    _current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
     service = EvaluationService(db)
-    evaluation = await service.get(uuid.UUID(evaluation_id))
+    evaluation = await service.get_owned(uuid.UUID(evaluation_id), current_user)
     return success(
         data={"id": str(evaluation.id), "status": evaluation.status},
         message="Evaluation status",
