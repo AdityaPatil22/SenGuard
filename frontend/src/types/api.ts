@@ -63,8 +63,8 @@ export interface Report {
   rejection_comment: string | null;
   evaluation_id: string;
   reviewer_id: string | null;
-  project_id: string;
-  subject_name: string;
+  project_id: string | null;
+  subject_name: string | null;
   risk_score: number | null;
   created_at: string;
   updated_at: string;

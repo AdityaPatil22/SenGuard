@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, File, Form, Query, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.dependencies import get_current_user
+from app.core.exceptions import BadRequestError
 from app.core.response import success
 from app.db.session import get_db
 from app.models.user import User
@@ -11,6 +12,8 @@ from app.services.dataset import DatasetService
 from app.storage.base import get_storage_from_settings
 
 router = APIRouter(prefix="/datasets", tags=["datasets"])
+
+MAX_FILE_SIZE = 50 * 1024 * 1024  # 50MB
 
 
 def _serialize(dataset) -> dict:
@@ -36,6 +39,8 @@ async def create_dataset(
     storage = get_storage_from_settings()
     service = DatasetService(db, storage)
     file_data = await file.read() if file else None
+    if file_data and len(file_data) > MAX_FILE_SIZE:
+        raise BadRequestError(f"File too large (max {MAX_FILE_SIZE // 1024 // 1024}MB)")
     file_name = file.filename if file else None
     dataset = await service.create(
         name=name,

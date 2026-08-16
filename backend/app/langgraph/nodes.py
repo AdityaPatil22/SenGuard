@@ -1,5 +1,6 @@
 import json
 import logging
+from functools import lru_cache
 
 from google import genai
 
@@ -10,15 +11,11 @@ from app.services.evaluation_progress import progress_store
 
 logger = logging.getLogger(__name__)
 
-_client = None
 
-
+@lru_cache(maxsize=1)
 def _get_client() -> genai.Client:
-    global _client
-    if _client is None:
-        settings = get_settings()
-        _client = genai.Client(api_key=settings.gemini_api_key)
-    return _client
+    settings = get_settings()
+    return genai.Client(api_key=settings.gemini_api_key)
 
 
 async def _ask_gemini(prompt: str) -> str:

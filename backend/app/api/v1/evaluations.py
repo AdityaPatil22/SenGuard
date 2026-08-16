@@ -1,5 +1,7 @@
 import asyncio
 import json
+import secrets
+import time
 import uuid
 
 from fastapi import APIRouter, Depends, Query, Response
@@ -7,7 +9,6 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.dependencies import get_current_user
-from app.auth.jwt import decode_token
 from app.core.exceptions import BadRequestError, UnauthorizedError
 from app.core.response import success
 from app.db.session import async_session, get_db
@@ -19,6 +20,12 @@ from app.services.evaluation import EvaluationService
 from app.services.evaluation_progress import EvaluationProgress, progress_store
 
 router = APIRouter(prefix="/evaluations", tags=["evaluations"])
+
+# ponytail: in-memory single-use SSE tickets (ticket -> (evaluation_id, expiry)); single-worker only,
+# matches progress_store. EventSource can't send auth headers, so the JWT-authenticated client
+# exchanges its token for a short-lived ticket instead of putting the JWT in the URL.
+_stream_tickets: dict[str, tuple[str, float]] = {}
+_TICKET_TTL = 30  # seconds
 
 
 async def _run_evaluation_background(evaluation_id: str):
@@ -178,19 +185,34 @@ async def get_evaluation_status(
     )
 
 
+@router.post("/{evaluation_id}/stream-ticket")
+async def create_stream_ticket(
+    evaluation_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    service = EvaluationService(db)
+    await service.get_owned(uuid.UUID(evaluation_id), current_user)
+
+    # drop expired tickets so the store doesn't grow unbounded
+    now = time.time()
+    for t, (_, exp) in list(_stream_tickets.items()):
+        if exp < now:
+            _stream_tickets.pop(t, None)
+
+    ticket = secrets.token_urlsafe(32)
+    _stream_tickets[ticket] = (evaluation_id, now + _TICKET_TTL)
+    return success(data={"ticket": ticket}, message="Stream ticket created")
+
+
 @router.get("/{evaluation_id}/stream")
 async def stream_evaluation(
     evaluation_id: str,
-    token: str = Query(...),
+    ticket: str = Query(...),
 ):
-    try:
-        decode_token(token, expected_type="access")
-    except UnauthorizedError:
-        return Response(
-            content=json.dumps({"success": False, "message": "Unauthorized", "data": None}),
-            media_type="application/json",
-            status_code=401,
-        )
+    entry = _stream_tickets.pop(ticket, None)  # single-use
+    if not entry or entry[0] != evaluation_id or entry[1] < time.time():
+        raise UnauthorizedError("Invalid or expired stream ticket")
 
     progress = progress_store.get(evaluation_id)
 

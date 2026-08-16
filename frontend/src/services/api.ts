@@ -60,8 +60,12 @@ api.interceptors.response.use(
     }
 
     try {
+      const refreshUrl = new URL(
+        "auth/refresh",
+        new URL(`${api.defaults.baseURL}/`, window.location.origin),
+      ).toString();
       const { data } = await axios.post(
-        `${api.defaults.baseURL}/auth/refresh`,
+        refreshUrl,
         { refresh_token: refreshToken },
         { headers: { "Content-Type": "application/json" } },
       );

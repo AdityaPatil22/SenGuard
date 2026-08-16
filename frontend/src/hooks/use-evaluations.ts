@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState, useCallback } from "react";
 
+import api from "@/services/api";
 import { getEvaluations, createEvaluation, runEvaluation } from "@/services/evaluations";
 import type { CreateEvaluationRequest } from "@/types/api";
 import type { NodeStatus } from "@/components/pipeline-stepper";
@@ -52,38 +53,45 @@ export function useEvaluationStream(evaluationId: string | undefined, enabled: b
   useEffect(() => {
     if (!enabled || !evaluationId || state.isDone) return;
 
-    const token = localStorage.getItem("access_token");
-    if (!token) return;
+    let es: EventSource | null = null;
+    let cancelled = false;
 
-    const baseUrl = import.meta.env.VITE_API_URL || "/api/v1";
-    const url = `${baseUrl}/evaluations/${evaluationId}/stream?token=${token}`;
+    (async () => {
+      // Exchange the JWT (via auth header) for a short-lived single-use ticket so the
+      // token never appears in the EventSource URL / server logs.
+      const { data } = await api.post(`/evaluations/${evaluationId}/stream-ticket`);
+      const ticket = data.data.ticket;
+      if (cancelled) return;
 
-    const es = new EventSource(url);
-    esRef.current = es;
+      const baseUrl = import.meta.env.VITE_API_URL || "/api/v1";
+      es = new EventSource(`${baseUrl}/evaluations/${evaluationId}/stream?ticket=${ticket}`);
+      esRef.current = es;
 
-    es.onmessage = (e) => {
-      const event = JSON.parse(e.data);
+      es.onmessage = (e) => {
+        const event = JSON.parse(e.data);
 
-      if (event.type === "node:start") {
-        setState((prev) => ({ ...prev, nodes: { ...prev.nodes, [event.node]: "running" } }));
-      } else if (event.type === "node:complete") {
-        setState((prev) => ({ ...prev, nodes: { ...prev.nodes, [event.node]: "completed" } }));
-      } else if (event.type === "node:failed") {
-        setState((prev) => ({ ...prev, nodes: { ...prev.nodes, [event.node]: "failed" } }));
-      } else if (event.type === "evaluation:complete" || event.type === "evaluation:failed") {
-        setState((prev) => ({ ...prev, isDone: true }));
+        if (event.type === "node:start") {
+          setState((prev) => ({ ...prev, nodes: { ...prev.nodes, [event.node]: "running" } }));
+        } else if (event.type === "node:complete") {
+          setState((prev) => ({ ...prev, nodes: { ...prev.nodes, [event.node]: "completed" } }));
+        } else if (event.type === "node:failed") {
+          setState((prev) => ({ ...prev, nodes: { ...prev.nodes, [event.node]: "failed" } }));
+        } else if (event.type === "evaluation:complete" || event.type === "evaluation:failed") {
+          setState((prev) => ({ ...prev, isDone: true }));
+          invalidateQueries();
+          es?.close();
+        }
+      };
+
+      es.onerror = () => {
         invalidateQueries();
-        es.close();
-      }
-    };
-
-    es.onerror = () => {
-      invalidateQueries();
-      es.close();
-    };
+        es?.close();
+      };
+    })();
 
     return () => {
-      es.close();
+      cancelled = true;
+      es?.close();
     };
   }, [evaluationId, enabled, state.isDone, invalidateQueries]);
 
