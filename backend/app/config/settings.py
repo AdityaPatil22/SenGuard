@@ -22,7 +22,7 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+asyncpg://sentinel:sentinel@localhost:5432/sentinel_ai"
 
     gemini_api_key: str = ""
-    gemini_model: str = "gemini-2.5-flash"
+    gemini_model: str = "gemini-3.6-flash"
 
     github_client_id: str = ""
     github_client_secret: str = ""
