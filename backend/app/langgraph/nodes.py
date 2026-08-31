@@ -6,10 +6,20 @@ from google import genai
 
 from app.config.settings import get_settings
 from app.langgraph.state import EvaluationState
-from app.scanners import ScanResults, compute_base_risk_score, run_all_scanners
+from app.scanners import Finding, ScanResults, compute_base_risk_score, run_all_scanners
 from app.services.evaluation_progress import progress_store
 
 logger = logging.getLogger(__name__)
+
+# Weighted rubric maxima. Category scores are points in these ranges, not 0-100.
+CATEGORY_MAX = {
+    "security": 25,
+    "privacy": 20,
+    "ai_safety": 20,
+    "architecture": 15,
+    "data_quality": 10,
+    "governance": 10,
+}
 
 
 @lru_cache(maxsize=1)
@@ -158,17 +168,22 @@ Return JSON with:
 async def risk_scoring(state: EvaluationState) -> EvaluationState:
     eval_id = state.get("evaluation_id")
     progress = progress_store.get(eval_id) if eval_id else None
+
     if progress:
         progress.start_node("risk_scoring")
 
     scanner_results = state.get("scanner_results", {})
     llm_analysis = state.get("llm_analysis_result", {})
-    findings = scanner_results.get("findings", [])
 
-    from app.scanners import Finding as FindingClass
+    findings = scanner_results.get("findings", [])
+    summary = scanner_results.get("summary", {})
+
+    description = state.get("project_description") or "No description provided."
+    model_name = state.get("model_name") or "unspecified LLM"
+    has_repo = state.get("has_repo", False)
 
     finding_objects = [
-        FindingClass(
+        Finding(
             source=f.get("source", ""),
             severity=f.get("severity", "low"),
             category=f.get("category", ""),
@@ -180,63 +195,157 @@ async def risk_scoring(state: EvaluationState) -> EvaluationState:
         )
         for f in findings
     ]
-    base_score = compute_base_risk_score(finding_objects)
 
-    prompt = f"""You are a risk scoring engine for AI governance.
+    scanner_signal = compute_base_risk_score(finding_objects)
 
-The automated scanners produced a base risk score of {base_score}/100 from these findings:
-{json.dumps(scanner_results.get("summary", {}), indent=2)}
+    prompt = f"""
+        You are an AI governance risk assessor.
 
-Your supplementary analysis found:
-{json.dumps(llm_analysis.get("supplementary_findings", []), indent=2, default=str)}
+        Evaluate the application or dataset using ALL available evidence.
 
-Scanner findings detail:
-{json.dumps(findings[:20], indent=2, default=str)}
+        Project:
+        {state.get("project_name", "Unknown")}
 
-You may adjust the base score by at most ±10 points based on context:
-- Lower if findings are in test/example code and not production
-- Higher if supplementary analysis found serious architectural risks
-- The adjustment must be justified
+        Description:
+        {description}
 
-Return JSON with:
-- "base_score": {base_score}
-- "adjustment": integer between -10 and 10
-- "adjusted_score": final score (base + adjustment, clamped 0-100)
-- "adjustment_reason": one sentence explaining the adjustment
-- "risk_level": "low" (0-25) | "medium" (26-50) | "high" (51-75) | "critical" (76-100)"""
+        Target model:
+        {model_name}
+
+        Evaluation type:
+        {"LLM application codebase" if has_repo else "LLM dataset"}
+
+        Automated scanner summary:
+        {json.dumps(summary, indent=2)}
+
+        Scanner findings:
+        {json.dumps(findings, indent=2, default=str)}
+
+        AI analysis:
+        {json.dumps(llm_analysis, indent=2, default=str)}
+
+        Initial scanner risk signal:
+        {scanner_signal}/100
+
+        Score the overall governance risk from 0 to 100.
+
+        IMPORTANT:
+        - 0 = minimal risk
+        - 100 = extreme/critical risk
+        - Do NOT simply reuse the scanner signal.
+        - Consider findings, architectural risks, privacy, security,
+        AI safety, data quality, safeguards, and fitness for purpose.
+        - A clean scanner result does NOT automatically mean low risk.
+        - Missing evidence should reduce confidence, not automatically reduce risk.
+        - Distinguish confirmed findings from potential risks.
+        - Assess the actual project context.
+
+        Use this weighted rubric. Each category score is points from 0 to that
+        category's maximum — NOT a 0-100 rating:
+
+        - security: 0-25
+        - privacy: 0-20
+        - ai_safety: 0-20
+        - architecture: 0-15
+        - data_quality: 0-10
+        - governance: 0-10
+
+        overall_score MUST equal the sum of the six category scores (0-100).
+
+        For each category provide:
+        - score (integer within that category's range above)
+        - reasoning
+
+        Then provide:
+        - overall_score
+        - risk_level
+        - overall_reasoning
+        - key_risks
+        - recommended_actions
+
+        Risk levels:
+        0-25 = low
+        26-50 = medium
+        51-75 = high
+        76-100 = critical
+
+        Return JSON only:
+
+        {{
+        "security": {{"score": 8, "reasoning": "..."}},
+        "privacy": {{"score": 6, "reasoning": "..."}},
+        "ai_safety": {{"score": 7, "reasoning": "..."}},
+        "architecture": {{"score": 5, "reasoning": "..."}},
+        "data_quality": {{"score": 3, "reasoning": "..."}},
+        "governance": {{"score": 4, "reasoning": "..."}},
+        "overall_score": 33,
+        "risk_level": "medium",
+        "overall_reasoning": "...",
+        "key_risks": [],
+        "recommended_actions": []
+        }}
+    """
 
     try:
         result = await _ask_gemini_json(prompt)
-        adj = max(-10, min(10, int(result.get("adjustment", 0))))
-        final = max(0, min(100, base_score + adj))
-        state["risk_score"] = float(final)
-        state["risk_breakdown"] = {
-            "base_score": base_score,
-            "adjustment": adj,
-            "adjusted_score": final,
-            "adjustment_reason": result.get("adjustment_reason", ""),
-            "risk_level": result.get("risk_level", "medium"),
+
+        # Clamp each category to its rubric max so 0-100 ratings cannot sum to 100+.
+        category_scores = {
+            name: max(0.0, min(float(maximum), float(result[name]["score"])))
+            for name, maximum in CATEGORY_MAX.items()
         }
+
+        # Recalculate rather than trusting the model's total.
+        final = max(0, min(100, round(sum(category_scores.values()))))
+
+        if final <= 25:
+            risk_level = "low"
+        elif final <= 50:
+            risk_level = "medium"
+        elif final <= 75:
+            risk_level = "high"
+        else:
+            risk_level = "critical"
+
+        state["risk_score"] = float(final)
+
+        state["risk_breakdown"] = {
+            "scanner_signal": scanner_signal,
+            "categories": category_scores,
+            "overall_score": final,
+            "risk_level": risk_level,
+            "overall_reasoning": result.get("overall_reasoning", ""),
+            "key_risks": result.get("key_risks", []),
+            "recommended_actions": result.get("recommended_actions", []),
+        }
+
     except Exception as e:
         logger.exception("risk_scoring node failed")
-        state["risk_score"] = base_score
+
+        # Safer fallback: use deterministic scanner signal.
+        state["risk_score"] = float(scanner_signal)
         state["risk_breakdown"] = {
-            "base_score": base_score,
-            "adjustment": 0,
-            "adjusted_score": base_score,
-            "adjustment_reason": f"LLM scoring failed, using base score: {e}",
-            "risk_level": "low"
-            if base_score <= 25
-            else "medium"
-            if base_score <= 50
-            else "high"
-            if base_score <= 75
-            else "critical",
+            "scanner_signal": scanner_signal,
+            "overall_score": scanner_signal,
+            "risk_level": (
+                "low"
+                if scanner_signal <= 25
+                else "medium"
+                if scanner_signal <= 50
+                else "high"
+                if scanner_signal <= 75
+                else "critical"
+            ),
+            "overall_reasoning": f"AI scoring failed: {e}",
         }
-        state.setdefault("errors", []).append(f"Risk scoring AI failed: {e}")
+
+        state.setdefault("errors", []).append(
+            f"Risk scoring AI failed: {e}"
+        )
 
     if progress:
         progress.complete_node("risk_scoring")
+
     return state
 
 
@@ -261,32 +370,32 @@ async def report_generation(state: EvaluationState) -> EvaluationState:
 
     prompt = f"""You are a governance report writer. Generate a clear, professional AI governance evaluation report for a {eval_type} evaluation.
 
-Project: {project_name}
-Evaluation type: {eval_type}
-Overall Risk Score: {risk_score}/100 ({risk_breakdown.get("risk_level", "unknown")})
-Score breakdown: base {risk_breakdown.get("base_score", "N/A")}, adjustment {risk_breakdown.get("adjustment", 0):+d} — {risk_breakdown.get("adjustment_reason", "")}
-Scanners used: {", ".join(scanners_used) if scanners_used else "None"}
+        Project: {project_name}
+        Evaluation type: {eval_type}
+        Overall Risk Score: {risk_score}/100 ({risk_breakdown.get("risk_level", "unknown")})
+        Score breakdown: {json.dumps(risk_breakdown, indent=2, default=str)}
+        Scanners used: {", ".join(scanners_used) if scanners_used else "None"}
 
-## Scanner Findings ({scanner_results.get("summary", {}).get("total", 0)} total)
-{json.dumps(findings, indent=2, default=str)}
+        ## Scanner Findings ({scanner_results.get("summary", {}).get("total", 0)} total)
+        {json.dumps(findings, indent=2, default=str)}
 
-## LLM Interpretation of Findings
-{json.dumps(interpreted, indent=2, default=str)}
+        ## LLM Interpretation of Findings
+        {json.dumps(interpreted, indent=2, default=str)}
 
-## Supplementary AI Analysis
-{json.dumps(supplementary, indent=2, default=str)}
+        ## Supplementary AI Analysis
+        {json.dumps(supplementary, indent=2, default=str)}
 
-Write a structured governance report in markdown with these sections:
-1. **Executive Summary** — 2-3 sentence overview with risk score and recommendation (approve/conditional/reject)
-2. **Scanner Findings** — group by category. For each finding include source, severity, evidence, explanation, and recommendation. If no findings, state that clearly.
-3. **AI-Assessed Risks** — supplementary findings clearly labeled as AI-assessed, with reasoning
-4. **Risk Score Breakdown** — base score, adjustment, and rationale
-5. **Recommendations** — prioritized action items, critical first
+        Write a structured governance report in markdown with these sections:
+        1. **Executive Summary** — 2-3 sentence overview with risk score and recommendation (approve/conditional/reject)
+        2. **Scanner Findings** — group by category. For each finding include source, severity, evidence, explanation, and recommendation. If no findings, state that clearly.
+        3. **AI-Assessed Risks** — supplementary findings clearly labeled as AI-assessed, with reasoning
+        4. **Risk Score Breakdown** — {json.dumps(risk_breakdown, indent=2, default=str)}
+        5. **Recommendations** — prioritized action items, critical first
 
-IMPORTANT: Every finding must cite its source. Scanner-detected findings say "Detected by: [scanner name]". AI-assessed findings say "Assessed by: AI analysis".
-{"" if has_repo else "This is a DATASET evaluation — do not mention missing repository files, .gitignore, or code-level concerns. Focus on data quality, PII, bias, and fitness for purpose."}
+        IMPORTANT: Every finding must cite its source. Scanner-detected findings say "Detected by: [scanner name]". AI-assessed findings say "Assessed by: AI analysis".
+        {"" if has_repo else "This is a DATASET evaluation — do not mention missing repository files, .gitignore, or code-level concerns. Focus on data quality, PII, bias, and fitness for purpose."}
 
-Keep it concise and actionable. Under 800 words."""
+        Keep it concise and actionable. Under 800 words."""
 
     try:
         state["report"] = await _ask_gemini(prompt)
