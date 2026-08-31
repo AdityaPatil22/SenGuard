@@ -1,9 +1,17 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
-import { getReports, approveReport, rejectReport } from "@/services/reports";
+import { getReports, getReport, approveReport, rejectReport } from "@/services/reports";
 
 export function useReports() {
   return useQuery({ queryKey: ["reports"], queryFn: getReports });
+}
+
+export function useReport(id: string | undefined) {
+  return useQuery({
+    queryKey: ["reports", id],
+    queryFn: () => getReport(id!),
+    enabled: !!id,
+  });
 }
 
 export function useApproveReport() {

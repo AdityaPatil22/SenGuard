@@ -56,7 +56,7 @@ async def _ask_gemini_json(prompt: str) -> dict:
 # ── Phase 1: Deterministic Scan ──────────────────────────────────────────
 
 
-async def deterministic_scan(state: EvaluationState) -> EvaluationState:
+async def deterministic_scan(state: EvaluationState) -> dict:
     eval_id = state.get("evaluation_id")
     progress = progress_store.get(eval_id) if eval_id else None
     if progress:
@@ -67,11 +67,10 @@ async def deterministic_scan(state: EvaluationState) -> EvaluationState:
     repo_path = state.get("repo_path")
 
     results: ScanResults = await run_all_scanners(repo_files, dataset_samples, repo_path)
-    state["scanner_results"] = results.to_dict()
 
     if progress:
         progress.complete_node("deterministic_scan")
-    return state
+    return {"scanner_results": results.to_dict()}
 
 
 # ── Phase 2: LLM Analysis ───────────────────────────────────────────────
@@ -95,7 +94,7 @@ def _format_dataset_context(state: EvaluationState) -> str:
     return f"\n\n--- DATASET SAMPLE ({len(samples)} rows) ---\n{preview}"
 
 
-async def llm_analysis(state: EvaluationState) -> EvaluationState:
+async def llm_analysis(state: EvaluationState) -> dict:
     eval_id = state.get("evaluation_id")
     progress = progress_store.get(eval_id) if eval_id else None
     if progress:
@@ -155,24 +154,24 @@ Return JSON with:
 - "supplementary_findings": list of {{"source": "ai-analysis", "confidence": "potential-risk", "severity": "low"|"medium"|"high"|"critical", "category": str, "description": str, "recommendation": str, "reasoning": str}}
 - "summary": one paragraph overall assessment"""
 
+    updates: dict = {}
     try:
-        result = await _ask_gemini_json(prompt)
-        state["llm_analysis_result"] = result
+        updates["llm_analysis_result"] = await _ask_gemini_json(prompt)
     except Exception as e:
         logger.exception("llm_analysis node failed")
-        state["llm_analysis_result"] = {
+        updates["llm_analysis_result"] = {
             "interpreted_findings": [],
             "supplementary_findings": [],
             "summary": f"LLM analysis failed: {e}",
         }
-        state.setdefault("errors", []).append(f"AI analysis failed: {e}")
+        updates["errors"] = (state.get("errors") or []) + [f"AI analysis failed: {e}"]
 
     if progress:
         progress.complete_node("llm_analysis")
-    return state
+    return updates
 
 
-async def risk_scoring(state: EvaluationState) -> EvaluationState:
+async def risk_scoring(state: EvaluationState) -> dict:
     eval_id = state.get("evaluation_id")
     progress = progress_store.get(eval_id) if eval_id else None
 
@@ -293,6 +292,7 @@ async def risk_scoring(state: EvaluationState) -> EvaluationState:
         }}
     """
 
+    updates: dict = {}
     try:
         result = await _ask_gemini_json(prompt)
 
@@ -314,9 +314,8 @@ async def risk_scoring(state: EvaluationState) -> EvaluationState:
         else:
             risk_level = "critical"
 
-        state["risk_score"] = float(final)
-
-        state["risk_breakdown"] = {
+        updates["risk_score"] = float(final)
+        updates["risk_breakdown"] = {
             "scanner_signal": scanner_signal,
             "categories": category_scores,
             "overall_score": final,
@@ -329,9 +328,8 @@ async def risk_scoring(state: EvaluationState) -> EvaluationState:
     except Exception as e:
         logger.exception("risk_scoring node failed")
 
-        # Safer fallback: use deterministic scanner signal.
-        state["risk_score"] = float(scanner_signal)
-        state["risk_breakdown"] = {
+        updates["risk_score"] = float(scanner_signal)
+        updates["risk_breakdown"] = {
             "scanner_signal": scanner_signal,
             "overall_score": scanner_signal,
             "risk_level": (
@@ -345,18 +343,15 @@ async def risk_scoring(state: EvaluationState) -> EvaluationState:
             ),
             "overall_reasoning": f"AI scoring failed: {e}",
         }
-
-        state.setdefault("errors", []).append(
-            f"Risk scoring AI failed: {e}"
-        )
+        updates["errors"] = (state.get("errors") or []) + [f"Risk scoring AI failed: {e}"]
 
     if progress:
         progress.complete_node("risk_scoring")
 
-    return state
+    return updates
 
 
-async def report_generation(state: EvaluationState) -> EvaluationState:
+async def report_generation(state: EvaluationState) -> dict:
     eval_id = state.get("evaluation_id")
     progress = progress_store.get(eval_id) if eval_id else None
     if progress:
@@ -404,15 +399,16 @@ async def report_generation(state: EvaluationState) -> EvaluationState:
 
         Keep it concise and actionable. Under 800 words."""
 
+    updates: dict = {}
     try:
-        state["report"] = await _ask_gemini(prompt)
+        updates["report"] = await _ask_gemini(prompt)
     except Exception as e:
         logger.exception("report_generation node failed")
-        state["report"] = (
+        updates["report"] = (
             f"# Evaluation Report — {project_name}\n\nRisk Score: {risk_score}/100\n\nReport generation failed: {e}"
         )
-        state.setdefault("errors", []).append(f"Report generation failed: {e}")
+        updates["errors"] = (state.get("errors") or []) + [f"Report generation failed: {e}"]
 
     if progress:
         progress.complete_node("report_generation")
-    return state
+    return updates

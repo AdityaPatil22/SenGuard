@@ -31,7 +31,7 @@ import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PipelineStepper } from "@/components/pipeline-stepper";
-import { useEvaluations, useEvaluationStream } from "@/hooks/use-evaluations";
+import { useEvaluation, useEvaluationStream } from "@/hooks/use-evaluations";
 import { useProjects } from "@/hooks/use-projects";
 import type { EvaluationStatus } from "@/types/api";
 import { riskColor, riskLabel } from "@/lib/utils";
@@ -296,10 +296,8 @@ function AnalysisTab({ data }: { data: Record<string, unknown> }) {
 
 export function EvaluationDetailPage() {
   const { id } = useParams();
-  const { data: evaluations = [], isLoading } = useEvaluations();
+  const { data: evaluation, isLoading } = useEvaluation(id);
   const { data: projects = [] } = useProjects();
-
-  const evaluation = evaluations.find((e) => e.id === id);
   const projectName = evaluation
     ? evaluation.evaluation_type === "application"
       ? projects.find((p) => p.id === evaluation.project_id)?.name ?? "Unknown Project"

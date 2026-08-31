@@ -7,8 +7,11 @@ interface ThemeState {
   toggle: () => void;
 }
 
+const storedTheme = (localStorage.getItem("theme") as Theme) || "light";
+document.documentElement.classList.toggle("dark", storedTheme === "dark");
+
 export const useThemeStore = create<ThemeState>((set) => ({
-  theme: (localStorage.getItem("theme") as Theme) || "light",
+  theme: storedTheme,
   toggle: () =>
     set((state) => {
       const next = state.theme === "light" ? "dark" : "light";

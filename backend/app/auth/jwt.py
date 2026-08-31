@@ -1,6 +1,7 @@
 from datetime import UTC, datetime, timedelta
 
-from jose import JWTError, jwt
+import jwt
+from jwt.exceptions import PyJWTError as JWTError
 
 from app.config import get_settings
 from app.core.exceptions import UnauthorizedError

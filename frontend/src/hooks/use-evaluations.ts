@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState, useCallback } from "react";
 
 import api from "@/services/api";
-import { getEvaluations, createEvaluation, runEvaluation } from "@/services/evaluations";
+import { getEvaluations, getEvaluation, createEvaluation, runEvaluation } from "@/services/evaluations";
 import type { CreateEvaluationRequest } from "@/types/api";
 import type { NodeStatus } from "@/components/pipeline-stepper";
 
@@ -10,6 +10,14 @@ export function useEvaluations() {
   return useQuery({
     queryKey: ["evaluations"],
     queryFn: getEvaluations,
+  });
+}
+
+export function useEvaluation(id: string | undefined) {
+  return useQuery({
+    queryKey: ["evaluations", id],
+    queryFn: () => getEvaluation(id!),
+    enabled: !!id,
   });
 }
 

@@ -2,7 +2,7 @@ import uuid as _uuid
 
 import pytest
 from httpx import ASGITransport, AsyncClient
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
 from app.auth.jwt import create_access_token, create_refresh_token
 from app.config import get_settings
@@ -12,14 +12,19 @@ from app.models.user import User
 
 settings = get_settings()
 
+_test_engine = create_async_engine(settings.database_url, echo=False)
+
 
 @pytest.fixture
 async def db_session():
-    engine = create_async_engine(settings.database_url, echo=False)
-    factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
-    async with factory() as session:
-        yield session
-    await engine.dispose()
+    async with _test_engine.connect() as conn:
+        txn = await conn.begin()
+        session = AsyncSession(bind=conn, expire_on_commit=False)
+        try:
+            yield session
+        finally:
+            await session.close()
+            await txn.rollback()
 
 
 @pytest.fixture

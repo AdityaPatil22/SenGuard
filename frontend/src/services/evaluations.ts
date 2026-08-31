@@ -11,6 +11,11 @@ export async function createEvaluation(body: CreateEvaluationRequest) {
   return data.data;
 }
 
+export async function getEvaluation(id: string) {
+  const { data } = await api.get<ApiResponse<Evaluation>>(`/evaluations/${id}`);
+  return data.data;
+}
+
 export async function runEvaluation(id: string) {
   const { data } = await api.post<ApiResponse<Evaluation>>(`/evaluations/${id}/run`);
   return data.data;

@@ -20,7 +20,7 @@ import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { useCanReview } from "@/hooks/use-current-user";
-import { useReports, useApproveReport, useRejectReport } from "@/hooks/use-reports";
+import { useReport, useApproveReport, useRejectReport } from "@/hooks/use-reports";
 import { exportReport } from "@/services/reports";
 import type { ReportStatus } from "@/types/api";
 import { riskColor, riskLabel } from "@/lib/utils";
@@ -41,8 +41,7 @@ const STATUS_LABEL: Record<ReportStatus, string> = {
 
 export function ReportDetailPage() {
   const { id } = useParams();
-  const { data: reports = [], isLoading } = useReports();
-  const report = reports.find((r) => r.id === id);
+  const { data: report, isLoading } = useReport(id);
   const approveReport = useApproveReport();
   const rejectReport = useRejectReport();
   const [rejectOpen, setRejectOpen] = useState(false);
