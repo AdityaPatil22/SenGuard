@@ -70,23 +70,23 @@ async def list_datasets(
 
 @router.get("/{dataset_id}")
 async def get_dataset(
-    dataset_id: str,
+    dataset_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
     _current_user: User = Depends(get_current_user),
 ):
     storage = get_storage_from_settings()
     service = DatasetService(db, storage)
-    dataset = await service.get(uuid.UUID(dataset_id))
+    dataset = await service.get(dataset_id)
     return success(data=_serialize(dataset), message="Dataset retrieved")
 
 
 @router.delete("/{dataset_id}")
 async def delete_dataset(
-    dataset_id: str,
+    dataset_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     storage = get_storage_from_settings()
     service = DatasetService(db, storage)
-    await service.delete(uuid.UUID(dataset_id), current_user)
+    await service.delete(dataset_id, current_user)
     return success(message="Dataset deleted")

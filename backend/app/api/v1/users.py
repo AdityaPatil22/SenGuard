@@ -42,33 +42,33 @@ async def list_users(
 
 @router.get("/{user_id}")
 async def get_user(
-    user_id: str,
+    user_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
     _current_user: User = Depends(require_roles("admin")),
 ):
     service = UserService(db)
-    user = await service.get_user(uuid.UUID(user_id))
+    user = await service.get_user(user_id)
     return success(data=_serialize(user), message="User retrieved")
 
 
 @router.patch("/{user_id}/role")
 async def change_user_role(
-    user_id: str,
+    user_id: uuid.UUID,
     data: UserRoleUpdate,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_roles("admin")),
 ):
     service = UserService(db)
-    user = await service.change_role(uuid.UUID(user_id), data.role, current_user)
+    user = await service.change_role(user_id, data.role, current_user)
     return success(data=_serialize(user), message="Role updated")
 
 
 @router.patch("/{user_id}/deactivate")
 async def deactivate_user(
-    user_id: str,
+    user_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_roles("admin")),
 ):
     service = UserService(db)
-    user = await service.deactivate(uuid.UUID(user_id), current_user)
+    user = await service.deactivate(user_id, current_user)
     return success(data=_serialize(user), message="User deactivated")

@@ -121,23 +121,23 @@ async def list_evaluations(
 
 @router.get("/{evaluation_id}")
 async def get_evaluation(
-    evaluation_id: str,
+    evaluation_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     service = EvaluationService(db)
-    evaluation = await service.get_owned(uuid.UUID(evaluation_id), current_user)
+    evaluation = await service.get_owned(evaluation_id, current_user)
     return success(data=_serialize(evaluation), message="Evaluation retrieved")
 
 
 @router.post("/{evaluation_id}/run")
 async def run_evaluation(
-    evaluation_id: str,
+    evaluation_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     service = EvaluationService(db)
-    evaluation = await service.get_owned(uuid.UUID(evaluation_id), current_user)
+    evaluation = await service.get_owned(evaluation_id, current_user)
 
     if evaluation.status == EvaluationStatus.RUNNING:
         return Response(
@@ -153,8 +153,7 @@ async def run_evaluation(
 
     claimed = await service.repo.claim_for_run(evaluation.id)
     if claimed is None:
-        # Lost the race to another concurrent request; report its outcome instead of re-running.
-        evaluation = await service.get(uuid.UUID(evaluation_id))
+        evaluation = await service.get(evaluation_id)
         return Response(
             content=json.dumps(
                 success(data=_serialize(evaluation), message="Evaluation already running")
@@ -164,18 +163,19 @@ async def run_evaluation(
         )
     evaluation = claimed
 
+    eid = str(evaluation_id)
     await create_audit_log(
         db,
         action="evaluation_started",
         resource_type="evaluation",
-        resource_id=evaluation_id,
+        resource_id=eid,
         user_id=current_user.id,
     )
 
     progress = EvaluationProgress()
-    progress_store[evaluation_id] = progress
+    progress_store[eid] = progress
 
-    asyncio.create_task(_run_evaluation_background(evaluation_id))
+    asyncio.create_task(_run_evaluation_background(eid))
 
     return Response(
         content=json.dumps(success(data=_serialize(evaluation), message="Evaluation started")),
@@ -186,12 +186,12 @@ async def run_evaluation(
 
 @router.get("/{evaluation_id}/status")
 async def get_evaluation_status(
-    evaluation_id: str,
+    evaluation_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     service = EvaluationService(db)
-    evaluation = await service.get_owned(uuid.UUID(evaluation_id), current_user)
+    evaluation = await service.get_owned(evaluation_id, current_user)
     return success(
         data={"id": str(evaluation.id), "status": evaluation.status},
         message="Evaluation status",
@@ -200,34 +200,35 @@ async def get_evaluation_status(
 
 @router.post("/{evaluation_id}/stream-ticket")
 async def create_stream_ticket(
-    evaluation_id: str,
+    evaluation_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     service = EvaluationService(db)
-    await service.get_owned(uuid.UUID(evaluation_id), current_user)
+    await service.get_owned(evaluation_id, current_user)
 
-    # drop expired tickets so the store doesn't grow unbounded
     now = time.time()
     for t, (_, exp) in list(_stream_tickets.items()):
         if exp < now:
             _stream_tickets.pop(t, None)
 
+    eid = str(evaluation_id)
     ticket = secrets.token_urlsafe(32)
-    _stream_tickets[ticket] = (evaluation_id, now + _TICKET_TTL)
+    _stream_tickets[ticket] = (eid, now + _TICKET_TTL)
     return success(data={"ticket": ticket}, message="Stream ticket created")
 
 
 @router.get("/{evaluation_id}/stream")
 async def stream_evaluation(
-    evaluation_id: str,
+    evaluation_id: uuid.UUID,
     ticket: str = Query(...),
 ):
+    eid = str(evaluation_id)
     entry = _stream_tickets.pop(ticket, None)  # single-use
-    if not entry or entry[0] != evaluation_id or entry[1] < time.time():
+    if not entry or entry[0] != eid or entry[1] < time.time():
         raise UnauthorizedError("Invalid or expired stream ticket")
 
-    progress = progress_store.get(evaluation_id)
+    progress = progress_store.get(eid)
 
     async def event_generator():
         if not progress:

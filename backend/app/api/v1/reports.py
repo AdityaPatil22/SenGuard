@@ -35,48 +35,48 @@ async def list_reports(
 
 @router.get("/{report_id}")
 async def get_report(
-    report_id: str,
+    report_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
     _current_user: User = Depends(get_current_user),
 ):
     service = ReportService(db)
-    report = await service.get(uuid.UUID(report_id))
+    report = await service.get(report_id)
     return success(data=_serialize(report), message="Report retrieved")
 
 
 @router.post("/{report_id}/approve")
 async def approve_report(
-    report_id: str,
+    report_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_roles("reviewer", "admin")),
 ):
     service = ReportService(db)
-    report = await service.approve(uuid.UUID(report_id), current_user.id)
+    report = await service.approve(report_id, current_user.id)
     return success(data=_serialize(report), message="Report approved")
 
 
 @router.post("/{report_id}/reject")
 async def reject_report(
-    report_id: str,
+    report_id: uuid.UUID,
     data: ReportReject,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_roles("reviewer", "admin")),
 ):
     service = ReportService(db)
-    report = await service.reject(uuid.UUID(report_id), current_user.id, data.comment)
+    report = await service.reject(report_id, current_user.id, data.comment)
     return success(data=_serialize(report), message="Report rejected")
 
 
 @router.get("/{report_id}/export")
 async def export_report(
-    report_id: str,
+    report_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
     _current_user: User = Depends(get_current_user),
 ):
     service = ReportService(db)
-    report_data = await service.export_json(uuid.UUID(report_id))
+    report_data = await service.export_json(report_id)
     return Response(
         content=json.dumps(report_data),
         media_type="application/octet-stream",
-        headers={"Content-Disposition": f'attachment; filename="report-{report_id[:8]}.json"'},
+        headers={"Content-Disposition": f'attachment; filename="report-{str(report_id)[:8]}.json"'},
     )

@@ -52,25 +52,25 @@ async def list_projects(
 
 @router.get("/{project_id}")
 async def get_project(
-    project_id: str,
+    project_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     service = ProjectService(db)
-    project = await service.get_for_user(uuid.UUID(project_id), current_user)
+    project = await service.get_for_user(project_id, current_user)
     return success(data=_serialize(project), message="Project retrieved")
 
 
 @router.put("/{project_id}")
 async def update_project(
-    project_id: str,
+    project_id: uuid.UUID,
     data: ProjectUpdate,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     service = ProjectService(db)
     project = await service.update(
-        uuid.UUID(project_id),
+        project_id,
         current_user,
         data.model_dump(exclude_unset=True),
     )
@@ -79,10 +79,10 @@ async def update_project(
 
 @router.delete("/{project_id}")
 async def delete_project(
-    project_id: str,
+    project_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     service = ProjectService(db)
-    await service.delete(uuid.UUID(project_id), current_user)
+    await service.delete(project_id, current_user)
     return success(message="Project deleted")
