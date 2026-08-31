@@ -36,8 +36,16 @@ class McpServerService:
             raise NotFoundError("MCP server not found")
         return server
 
-    async def list_all(self, skip: int = 0, limit: int = 100) -> list[McpServer]:
-        return await self.repo.get_all(skip, limit)
+    async def get_owned(self, server_id: uuid.UUID, user: User) -> McpServer:
+        server = await self.get(server_id)
+        if user.role != UserRole.ADMIN and server.owner_id != user.id:
+            raise ForbiddenError("Not authorized to access this MCP server")
+        return server
+
+    async def list_all(self, user: User, skip: int = 0, limit: int = 100) -> list[McpServer]:
+        if user.role == UserRole.ADMIN:
+            return await self.repo.get_all(skip, limit)
+        return await self.repo.get_by_owner(user.id, skip, limit)
 
     async def update(
         self, server_id: uuid.UUID, user: User, data: dict

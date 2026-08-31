@@ -47,10 +47,10 @@ async def list_mcp_servers(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
-    _current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
     service = McpServerService(db)
-    servers = await service.list_all(skip, limit)
+    servers = await service.list_all(current_user, skip, limit)
     return success(data=[_serialize(s) for s in servers], message="MCP servers retrieved")
 
 
@@ -58,10 +58,10 @@ async def list_mcp_servers(
 async def get_mcp_server(
     server_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
-    _current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
     service = McpServerService(db)
-    server = await service.get(server_id)
+    server = await service.get_owned(server_id, current_user)
     return success(data=_serialize(server), message="MCP server retrieved")
 
 

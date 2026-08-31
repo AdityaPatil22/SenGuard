@@ -1,11 +1,13 @@
 import uuid
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
+from app.models.dataset import Dataset
 from app.models.evaluation import Evaluation
 from app.models.mcp_server import McpServer
+from app.models.project import Project
 from app.models.report import Report
 from app.models.skill import Skill
 from app.repositories.base import BaseRepository
@@ -61,5 +63,42 @@ class ReportRepository(BaseRepository[Report]):
             .order_by(Report.created_at.desc())
             .offset(skip)
             .limit(limit)
+        )
+        return list(result.unique().scalars().all())
+
+    async def list_filtered(
+        self,
+        owner_id: uuid.UUID | None = None,
+        project_id: uuid.UUID | None = None,
+        status: str | None = None,
+        skip: int = 0,
+        limit: int = 100,
+    ) -> list[Report]:
+        query = select(Report).options(*self._eval_options()).join(Evaluation)
+        conditions = []
+
+        if project_id:
+            conditions.append(Evaluation.project_id == project_id)
+        if status:
+            conditions.append(Report.status == status)
+        if owner_id is not None:
+            query = (
+                query
+                .outerjoin(Project, Evaluation.project_id == Project.id)
+                .outerjoin(Dataset, Evaluation.dataset_id == Dataset.id)
+                .outerjoin(McpServer, Evaluation.mcp_server_id == McpServer.id)
+                .outerjoin(Skill, Evaluation.skill_id == Skill.id)
+            )
+            conditions.append(
+                or_(
+                    Project.owner_id == owner_id,
+                    Dataset.owner_id == owner_id,
+                    McpServer.owner_id == owner_id,
+                    Skill.owner_id == owner_id,
+                )
+            )
+
+        result = await self.db.execute(
+            query.where(*conditions).order_by(Report.created_at.desc()).offset(skip).limit(limit)
         )
         return list(result.unique().scalars().all())

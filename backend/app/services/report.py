@@ -2,8 +2,9 @@ import uuid
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.exceptions import BadRequestError, NotFoundError
+from app.core.exceptions import BadRequestError, ForbiddenError, NotFoundError
 from app.models.report import Report, ReportStatus
+from app.models.user import User, UserRole
 from app.repositories.report import ReportRepository
 from app.services.audit import create_audit_log
 
@@ -24,18 +25,50 @@ class ReportService:
             raise NotFoundError("Report not found")
         return report
 
+    async def get_owned(self, report_id: uuid.UUID, user: User) -> Report:
+        from app.models.dataset import Dataset
+        from app.models.mcp_server import McpServer
+        from app.models.project import Project
+        from app.models.skill import Skill
+
+        report = await self.get(report_id)
+        if user.role == UserRole.ADMIN:
+            return report
+        evaluation = report.evaluation
+        if evaluation:
+            owner_id = None
+            if evaluation.project_id:
+                project = await self.db.get(Project, evaluation.project_id)
+                owner_id = project.owner_id if project else None
+            elif evaluation.dataset_id:
+                dataset = await self.db.get(Dataset, evaluation.dataset_id)
+                owner_id = dataset.owner_id if dataset else None
+            elif evaluation.mcp_server_id:
+                server = await self.db.get(McpServer, evaluation.mcp_server_id)
+                owner_id = server.owner_id if server else None
+            elif evaluation.skill_id:
+                skill = await self.db.get(Skill, evaluation.skill_id)
+                owner_id = skill.owner_id if skill else None
+            if owner_id == user.id:
+                return report
+        raise ForbiddenError("Not authorized to access this report")
+
     async def list_all(
         self,
+        user: User,
         project_id: uuid.UUID | None = None,
         status: str | None = None,
         skip: int = 0,
         limit: int = 100,
     ) -> list[Report]:
-        if project_id:
-            return await self.repo.get_by_project(project_id, skip, limit)
-        if status:
-            return await self.repo.get_by_status(status, skip, limit)
-        return await self.repo.list_all_with_evaluation(skip, limit)
+        owner_id = None if user.role == UserRole.ADMIN else user.id
+        return await self.repo.list_filtered(
+            owner_id=owner_id,
+            project_id=project_id,
+            status=status,
+            skip=skip,
+            limit=limit,
+        )
 
     async def approve(self, report_id: uuid.UUID, reviewer_id: uuid.UUID) -> Report:
         report = await self.get(report_id)

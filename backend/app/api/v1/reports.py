@@ -21,10 +21,11 @@ async def list_reports(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
-    _current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
     service = ReportService(db)
     reports = await service.list_all(
+        user=current_user,
         project_id=project_id,
         status=status,
         skip=skip,
@@ -37,10 +38,10 @@ async def list_reports(
 async def get_report(
     report_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
-    _current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
     service = ReportService(db)
-    report = await service.get(report_id)
+    report = await service.get_owned(report_id, current_user)
     return success(data=_serialize(report), message="Report retrieved")
 
 
@@ -71,9 +72,10 @@ async def reject_report(
 async def export_report(
     report_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
-    _current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
     service = ReportService(db)
+    await service.get_owned(report_id, current_user)
     report_data = await service.export_json(report_id)
     return Response(
         content=json.dumps(report_data),

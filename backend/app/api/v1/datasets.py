@@ -59,11 +59,12 @@ async def list_datasets(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
-    _current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
     storage = get_storage_from_settings()
     service = DatasetService(db, storage)
     datasets = await service.list_all(
+        user=current_user,
         skip=skip,
         limit=limit,
     )
@@ -74,11 +75,11 @@ async def list_datasets(
 async def get_dataset(
     dataset_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
-    _current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
     storage = get_storage_from_settings()
     service = DatasetService(db, storage)
-    dataset = await service.get(dataset_id)
+    dataset = await service.get_owned(dataset_id, current_user)
     return success(data=_serialize(dataset), message="Dataset retrieved")
 
 

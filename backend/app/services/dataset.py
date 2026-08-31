@@ -50,12 +50,21 @@ class DatasetService:
             raise NotFoundError("Dataset not found")
         return dataset
 
+    async def get_owned(self, dataset_id: uuid.UUID, user: User) -> Dataset:
+        dataset = await self.get(dataset_id)
+        if user.role != UserRole.ADMIN and (dataset.owner_id is None or dataset.owner_id != user.id):
+            raise ForbiddenError("Not authorized to access this dataset")
+        return dataset
+
     async def list_all(
         self,
+        user: User,
         skip: int = 0,
         limit: int = 100,
     ) -> list[Dataset]:
-        return await self.repo.get_all(skip, limit)
+        if user.role == UserRole.ADMIN:
+            return await self.repo.get_all(skip, limit)
+        return await self.repo.get_by_owner(user.id, skip, limit)
 
     async def delete(self, dataset_id: uuid.UUID, user: User) -> None:
         dataset = await self.get(dataset_id)

@@ -67,10 +67,10 @@ async def list_skills(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
-    _current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
     service = SkillService(db)
-    skills = await service.list_all(skip, limit)
+    skills = await service.list_all(current_user, skip, limit)
     return success(data=[_serialize(s) for s in skills], message="Skills retrieved")
 
 
@@ -78,10 +78,10 @@ async def list_skills(
 async def get_skill(
     skill_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
-    _current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
     service = SkillService(db)
-    skill = await service.get(skill_id)
+    skill = await service.get_owned(skill_id, current_user)
     return success(data=_serialize(skill), message="Skill retrieved")
 
 

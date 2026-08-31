@@ -24,6 +24,16 @@ class BaseRepository(Generic[ModelType]):  # noqa: UP046
         )
         return list(result.scalars().all())
 
+    async def get_by_owner(self, owner_id: uuid.UUID, skip: int = 0, limit: int = 100) -> list[ModelType]:
+        result = await self.db.execute(
+            select(self.model)
+            .where(self.model.owner_id == owner_id)
+            .order_by(self.model.created_at.desc())
+            .offset(skip)
+            .limit(limit)
+        )
+        return list(result.scalars().all())
+
     async def create(self, obj: ModelType) -> ModelType:
         self.db.add(obj)
         await self.db.flush()

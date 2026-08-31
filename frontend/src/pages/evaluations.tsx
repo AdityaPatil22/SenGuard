@@ -135,7 +135,7 @@ function EvaluationCard({
                   </Button>
                 }
               />
-              <DropdownMenuContent align="end">
+              <DropdownMenuContent align="end" className="min-w-[180px]">
                 {status === "running" && (
                   <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={onCancel}>
                     <Ban className="h-4 w-4 mr-2" />
