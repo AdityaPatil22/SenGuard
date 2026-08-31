@@ -48,7 +48,7 @@ class ReportService:
             },
         )
         await self._audit(reviewer_id, report_id, "approve")
-        return report
+        return await self.get(report_id)
 
     async def reject(self, report_id: uuid.UUID, reviewer_id: uuid.UUID, comment: str) -> Report:
         report = await self.get(report_id)
@@ -62,7 +62,7 @@ class ReportService:
             },
         )
         await self._audit(reviewer_id, report_id, "reject", comment)
-        return report
+        return await self.get(report_id)
 
     async def create_from_evaluation(self, evaluation_id: uuid.UUID, content: str | None) -> Report:
         report = Report(

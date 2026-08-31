@@ -30,11 +30,17 @@ class BaseRepository(Generic[ModelType]):  # noqa: UP046
         await self.db.refresh(obj)
         return obj
 
+    _PROTECTED_COLUMNS = frozenset({"id", "created_at"})
+
     async def update(self, obj: ModelType, data: dict) -> ModelType:
+        columns = {c.key for c in self.model.__table__.columns}
         for key, value in data.items():
+            if key in self._PROTECTED_COLUMNS:
+                raise ValueError(f"Cannot update protected column: {key}")
+            if key not in columns:
+                raise ValueError(f"Unknown column for {self.model.__name__}: {key}")
             setattr(obj, key, value)
         await self.db.flush()
-        await self.db.refresh(obj)
         return obj
 
     async def delete(self, obj: ModelType) -> None:
