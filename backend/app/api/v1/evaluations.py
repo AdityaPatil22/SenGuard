@@ -1,5 +1,6 @@
 import asyncio
 import json
+import logging
 import secrets
 import time
 import uuid
@@ -18,6 +19,8 @@ from app.schemas.evaluation import EvaluationCreate
 from app.services.audit import create_audit_log
 from app.services.evaluation import EvaluationService
 from app.services.evaluation_progress import EvaluationProgress, progress_store
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/evaluations", tags=["evaluations"])
 
@@ -41,6 +44,16 @@ async def _run_evaluation_background(evaluation_id: str):
             progress.complete()
         except Exception as e:
             await session.rollback()
+            try:
+                service = EvaluationService(session)
+                evaluation = await service.get(uuid.UUID(evaluation_id))
+                await service.repo.update(
+                    evaluation,
+                    {"status": EvaluationStatus.FAILED, "error_message": str(e)},
+                )
+                await session.commit()
+            except Exception:
+                logger.exception("Failed to record evaluation error status for %s", evaluation_id)
             progress.fail(str(e))
         finally:
             await asyncio.sleep(60)

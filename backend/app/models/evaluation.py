@@ -44,5 +44,5 @@ class Evaluation(Base, UUIDMixin, TimestampMixin):
     dataset: Mapped[Dataset | None] = relationship(lazy="raise")
 
     report: Mapped[Report | None] = relationship(
-        back_populates="evaluation", cascade="all, delete-orphan", passive_deletes=True
+        back_populates="evaluation", cascade="all, delete-orphan"
     )

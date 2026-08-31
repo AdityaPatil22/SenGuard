@@ -54,10 +54,10 @@ async def list_projects(
 async def get_project(
     project_id: str,
     db: AsyncSession = Depends(get_db),
-    _current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
     service = ProjectService(db)
-    project = await service.get(uuid.UUID(project_id))
+    project = await service.get_for_user(uuid.UUID(project_id), current_user)
     return success(data=_serialize(project), message="Project retrieved")
 
 

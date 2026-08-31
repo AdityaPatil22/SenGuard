@@ -43,7 +43,7 @@ async def get_me(current_user: User = Depends(get_current_user)):
             "github_username": current_user.github_username,
             "email": current_user.email,
             "avatar_url": current_user.avatar_url,
-            "role": current_user.role or "developer",
+            "role": current_user.role,
             "is_active": current_user.is_active,
             "created_at": current_user.created_at.isoformat(),
             "updated_at": current_user.updated_at.isoformat(),

@@ -101,75 +101,66 @@ class EvaluationService:
         if evaluation.status != EvaluationStatus.RUNNING:
             raise BadRequestError(f"Evaluation {evaluation_id} is {evaluation.status}, expected RUNNING")
 
-        try:
-            project = await self.db.get(Project, evaluation.project_id) if evaluation.project_id else None
+        project = await self.db.get(Project, evaluation.project_id) if evaluation.project_id else None
 
-            dataset_samples: list[str] = []
-            if evaluation.dataset_id:
-                ds = await self.db.get(Dataset, evaluation.dataset_id)
-                if ds and ds.file_path:
-                    storage = get_storage_from_settings()
-                    if await storage.exists(ds.file_path):
-                        raw = await storage.load(ds.file_path)
-                        dataset_samples = raw.decode("utf-8", errors="replace").splitlines()[:50]
+        dataset_samples: list[str] = []
+        if evaluation.dataset_id:
+            ds = await self.db.get(Dataset, evaluation.dataset_id)
+            if ds and ds.file_path:
+                storage = get_storage_from_settings()
+                if await storage.exists(ds.file_path):
+                    raw = await storage.load(ds.file_path)
+                    dataset_samples = raw.decode("utf-8", errors="replace").splitlines()[:50]
 
-            repo_files: list[dict] = []
-            repo_path: str | None = None
-            if project and project.repo_url:
-                try:
-                    token = None
-                    owner = await self.db.get(User, project.owner_id) if project.owner_id else None
-                    if owner and owner.github_token:
-                        token = decrypt_token(owner.github_token)
-                    repo_path = await clone_repo(project.repo_url, token=token)
-                    repo_files = extract_key_files(repo_path)
-                except Exception as e:
-                    logger.warning("Failed to clone repo %s: %s", project.repo_url, e)
-
+        repo_files: list[dict] = []
+        repo_path: str | None = None
+        if project and project.repo_url:
             try:
-                result = await get_evaluation_workflow().ainvoke(
-                    {
-                        "evaluation_id": str(evaluation.id),
-                        "project_id": str(evaluation.project_id),
-                        "project_name": project.name if project else "Unknown",
-                        "project_description": project.description or "" if project else "",
-                        "model_name": evaluation.model_name,
-                        "dataset_samples": dataset_samples,
-                        "repo_files": repo_files,
-                        "repo_path": repo_path,
-                        "has_repo": bool(repo_files),
-                    }
-                )
-            finally:
-                if repo_path:
-                    cleanup_repo(repo_path)
+                token = None
+                owner = await self.db.get(User, project.owner_id) if project.owner_id else None
+                if owner and owner.github_token:
+                    token = decrypt_token(owner.github_token)
+                repo_path = await clone_repo(project.repo_url, token=token)
+                repo_files = extract_key_files(repo_path)
+            except Exception as e:
+                logger.warning("Failed to clone repo %s: %s", project.repo_url, e)
 
-            summary = result.get("report") or None
-            pipeline_errors = result.get("errors") or []
-            await self.repo.update(
-                evaluation,
+        try:
+            result = await get_evaluation_workflow().ainvoke(
                 {
-                    "status": EvaluationStatus.COMPLETED,
-                    "risk_score": result.get("risk_score"),
-                    "summary": summary,
-                    "error_message": "; ".join(pipeline_errors) if pipeline_errors else None,
-                    "node_results": {
-                        "scanners": result.get("scanner_results"),
-                        "llm_analysis": result.get("llm_analysis_result"),
-                        "risk_breakdown": result.get("risk_breakdown"),
-                    },
-                },
+                    "evaluation_id": str(evaluation.id),
+                    "project_id": str(evaluation.project_id),
+                    "project_name": project.name if project else "Unknown",
+                    "project_description": project.description or "" if project else "",
+                    "model_name": evaluation.model_name,
+                    "dataset_samples": dataset_samples,
+                    "repo_files": repo_files,
+                    "repo_path": repo_path,
+                    "has_repo": bool(repo_files),
+                }
             )
+        finally:
+            if repo_path:
+                cleanup_repo(repo_path)
 
-            report_svc = ReportService(self.db)
-            await report_svc.create_from_evaluation(evaluation.id, summary)
-        except Exception as e:
-            await self.repo.update(
-                evaluation,
-                {
-                    "status": EvaluationStatus.FAILED,
-                    "error_message": str(e),
+        summary = result.get("report") or None
+        pipeline_errors = result.get("errors") or []
+        await self.repo.update(
+            evaluation,
+            {
+                "status": EvaluationStatus.COMPLETED,
+                "risk_score": result.get("risk_score"),
+                "summary": summary,
+                "error_message": "; ".join(pipeline_errors) if pipeline_errors else None,
+                "node_results": {
+                    "scanners": result.get("scanner_results"),
+                    "llm_analysis": result.get("llm_analysis_result"),
+                    "risk_breakdown": result.get("risk_breakdown"),
                 },
-            )
+            },
+        )
+
+        report_svc = ReportService(self.db)
+        await report_svc.create_from_evaluation(evaluation.id, summary)
 
         return evaluation

@@ -30,7 +30,7 @@ def require_roles(*roles: str):
     async def dependency(
         current_user: User = Depends(get_current_user),
     ) -> User:
-        user_role = current_user.role or "developer"
+        user_role = current_user.role
         if user_role not in roles:
             raise ForbiddenError(f"Requires one of: {', '.join(roles)}")
         return current_user

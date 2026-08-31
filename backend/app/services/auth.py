@@ -63,7 +63,7 @@ class AuthService:
             role = (
                 "admin"
                 if settings.admin_github_username and gh_user["login"] == settings.admin_github_username
-                else None
+                else "developer"
             )
             user = User(
                 github_id=gh_user["id"],
@@ -83,15 +83,15 @@ class AuthService:
                 "github_username": user.github_username,
                 "email": user.email,
                 "avatar_url": user.avatar_url,
-                "role": user.role or "developer",
+                "role": user.role,
             },
         }
 
     async def refresh(self, refresh_token: str) -> TokenResponse:
         payload = decode_token(refresh_token, expected_type="refresh")
         user = await self.user_repo.get_by_id(uuid.UUID(payload["sub"]))
-        if not user:
-            raise UnauthorizedError("User not found")
+        if not user or not user.is_active:
+            raise UnauthorizedError("User not found or inactive")
         return self._create_tokens(user)
 
     @staticmethod

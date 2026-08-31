@@ -3,6 +3,7 @@ import logging
 from functools import lru_cache
 
 from google import genai
+from google.genai import types
 
 from app.config.settings import get_settings
 from app.langgraph.state import EvaluationState
@@ -39,10 +40,16 @@ async def _ask_gemini(prompt: str) -> str:
 
 
 async def _ask_gemini_json(prompt: str) -> dict:
-    text = await _ask_gemini(prompt + "\n\nRespond with valid JSON only, no markdown fences.")
-    text = text.strip()
-    if text.startswith("```"):
-        text = text.split("\n", 1)[1].rsplit("```", 1)[0].strip()
+    client = _get_client()
+    settings = get_settings()
+    response = await client.aio.models.generate_content(
+        model=settings.gemini_model,
+        contents=prompt,
+        config=types.GenerateContentConfig(
+            response_mime_type="application/json",
+        ),
+    )
+    text = response.text.strip()
     return json.loads(text)
 
 

@@ -21,7 +21,7 @@ def _serialize(user: User) -> dict:
         "github_username": user.github_username,
         "email": user.email,
         "avatar_url": user.avatar_url,
-        "role": user.role or "developer",
+        "role": user.role,
         "is_active": user.is_active,
         "created_at": user.created_at.isoformat(),
         "updated_at": user.updated_at.isoformat(),

@@ -42,6 +42,11 @@ class ProjectService:
             raise NotFoundError("Project not found")
         return project
 
+    async def get_for_user(self, project_id: uuid.UUID, user: User) -> Project:
+        project = await self.get(project_id)
+        self._check_owner(project, user)
+        return project
+
     async def list_all(
         self,
         user: User,
@@ -72,5 +77,7 @@ class ProjectService:
         await self.repo.delete(project)
 
     def _check_owner(self, project: Project, user: User) -> None:
+        if user.role == "admin":
+            return
         if project.owner_id != user.id:
-            raise ForbiddenError("Only the project owner can modify this project")
+            raise ForbiddenError("Only the project owner can access this project")
