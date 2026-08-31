@@ -249,8 +249,8 @@ export function ProjectsPage() {
                       <span className="text-muted-foreground/50">—</span>
                     )}
                   </TableCell>
-                  <TableCell className="hidden md:table-cell text-muted-foreground max-w-xs truncate">
-                    {p.description ?? "—"}
+                  <TableCell className="hidden md:table-cell text-muted-foreground">
+                    <span className="block max-w-xs truncate">{p.description ?? "—"}</span>
                   </TableCell>
                   <TableCell className="hidden sm:table-cell text-muted-foreground">
                     {formatDate(p.created_at)}
@@ -409,7 +409,12 @@ export function ProjectsPage() {
       <Dialog
         open={!!editProject}
         onOpenChange={(open) => {
-          if (!open) setEditProject(null);
+          if (!open) {
+            setEditProject(null);
+            setName("");
+            setDescription("");
+            setRepoUrl("");
+          }
         }}
       >
         <DialogContent>

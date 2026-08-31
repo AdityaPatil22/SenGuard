@@ -66,6 +66,7 @@ export interface Report {
   status: ReportStatus;
   rejection_comment: string | null;
   evaluation_id: string;
+  evaluation_type: "application" | "dataset" | "mcp_server" | "skill" | "standalone";
   reviewer_id: string | null;
   project_id: string | null;
   subject_name: string | null;

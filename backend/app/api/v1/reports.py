@@ -16,7 +16,7 @@ router = APIRouter(prefix="/reports", tags=["reports"])
 
 @router.get("")
 async def list_reports(
-    project_id: str | None = Query(None),
+    project_id: uuid.UUID | None = Query(None),
     status: str | None = Query(None),
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=100),
@@ -25,7 +25,7 @@ async def list_reports(
 ):
     service = ReportService(db)
     reports = await service.list_all(
-        project_id=uuid.UUID(project_id) if project_id else None,
+        project_id=project_id,
         status=status,
         skip=skip,
         limit=limit,
@@ -77,6 +77,6 @@ async def export_report(
     report_data = await service.export_json(report_id)
     return Response(
         content=json.dumps(report_data),
-        media_type="application/octet-stream",
+        media_type="application/json",
         headers={"Content-Disposition": f'attachment; filename="report-{str(report_id)[:8]}.json"'},
     )

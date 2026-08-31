@@ -228,7 +228,10 @@ export function ReportsPage() {
       <Dialog
         open={!!rejectDialog}
         onOpenChange={(open) => {
-          if (!open) setRejectDialog(null);
+          if (!open) {
+            setRejectDialog(null);
+            setRejectComment("");
+          }
         }}
       >
         <DialogContent>

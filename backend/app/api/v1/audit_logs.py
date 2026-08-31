@@ -30,7 +30,7 @@ def _serialize(log: AuditLog) -> dict:
 @router.get("")
 async def list_audit_logs(
     resource_type: str | None = Query(None),
-    user_id: str | None = Query(None),
+    user_id: uuid.UUID | None = Query(None),
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
@@ -39,7 +39,7 @@ async def list_audit_logs(
     repo = AuditLogRepository(db)
     logs = await repo.query(
         resource_type=resource_type,
-        user_id=uuid.UUID(user_id) if user_id else None,
+        user_id=user_id,
         skip=skip,
         limit=limit,
     )

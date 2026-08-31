@@ -20,3 +20,13 @@ export async function runEvaluation(id: string) {
   const { data } = await api.post<ApiResponse<Evaluation>>(`/evaluations/${id}/run`);
   return data.data;
 }
+
+export async function deleteEvaluation(id: string) {
+  const { data } = await api.delete<ApiResponse<null>>(`/evaluations/${id}`);
+  return data.data;
+}
+
+export async function cancelEvaluation(id: string) {
+  const { data } = await api.post<ApiResponse<Evaluation>>(`/evaluations/${id}/cancel`);
+  return data.data;
+}

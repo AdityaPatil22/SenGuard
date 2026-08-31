@@ -26,7 +26,7 @@ class DatasetService:
         file_path = None
         record_count = None
         if file_data and file_name:
-            safe_name = file_name.replace("/", "*").replace("\\", "*")
+            safe_name = file_name.replace("/", "_").replace("\\", "_")
             folder = str(user.id)
             storage_path = f"datasets/{folder}/{uuid.uuid4()}_{safe_name}"
             file_path = await self.storage.save(storage_path, file_data)

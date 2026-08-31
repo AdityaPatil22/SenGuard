@@ -41,6 +41,7 @@ class BaseRepository(Generic[ModelType]):  # noqa: UP046
                 raise ValueError(f"Unknown column for {self.model.__name__}: {key}")
             setattr(obj, key, value)
         await self.db.flush()
+        await self.db.refresh(obj)
         return obj
 
     async def delete(self, obj: ModelType) -> None:

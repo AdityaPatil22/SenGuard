@@ -48,6 +48,8 @@ class EvaluationService:
             dataset = await self.db.get(Dataset, dataset_id)
             if not dataset:
                 raise NotFoundError("Dataset not found")
+            if dataset.owner_id and dataset.owner_id != owner_id:
+                raise BadRequestError("Not your dataset")
         if mcp_server_id:
             server = await self.db.get(McpServer, mcp_server_id)
             if not server:

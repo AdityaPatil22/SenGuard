@@ -8,7 +8,7 @@ from app.repositories.evaluation import EvaluationRepository
 async def test_claim_for_run_is_race_safe(db_session):
     evaluation = Evaluation(status=EvaluationStatus.PENDING)
     db_session.add(evaluation)
-    await db_session.commit()
+    await db_session.flush()
     await db_session.refresh(evaluation)
 
     repo = EvaluationRepository(db_session)
@@ -19,6 +19,3 @@ async def test_claim_for_run_is_race_safe(db_session):
     assert first is not None
     assert first.status == EvaluationStatus.RUNNING
     assert second is None  # already claimed, no double-run
-
-    await db_session.delete(first)
-    await db_session.commit()

@@ -18,7 +18,10 @@ export function useApproveReport() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => approveReport(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["reports"] }),
+    onSuccess: (_data, id) => {
+      qc.invalidateQueries({ queryKey: ["reports"] });
+      qc.invalidateQueries({ queryKey: ["reports", id] });
+    },
   });
 }
 
@@ -26,6 +29,9 @@ export function useRejectReport() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, comment }: { id: string; comment: string }) => rejectReport(id, comment),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["reports"] }),
+    onSuccess: (_data, { id }) => {
+      qc.invalidateQueries({ queryKey: ["reports"] });
+      qc.invalidateQueries({ queryKey: ["reports", id] });
+    },
   });
 }

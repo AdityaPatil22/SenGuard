@@ -173,8 +173,8 @@ export function McpServersPage() {
               {filtered.map((s) => (
                 <TableRow key={s.id}>
                   <TableCell className="font-medium">{s.name}</TableCell>
-                  <TableCell className="hidden md:table-cell text-muted-foreground max-w-xs truncate">{s.description ?? "—"}</TableCell>
-                  <TableCell className="hidden lg:table-cell text-muted-foreground text-sm">{s.repo_url ? <a href={s.repo_url} target="_blank" rel="noopener noreferrer" className="hover:underline">{s.repo_url}</a> : "—"}</TableCell>
+                  <TableCell className="hidden md:table-cell text-muted-foreground"><span className="block max-w-xs truncate">{s.description ?? "—"}</span></TableCell>
+                  <TableCell className="hidden lg:table-cell text-muted-foreground text-sm"><span className="block max-w-xs truncate">{s.repo_url ? <a href={s.repo_url} target="_blank" rel="noopener noreferrer" className="hover:underline">{s.repo_url}</a> : "—"}</span></TableCell>
                   <TableCell className="hidden sm:table-cell text-muted-foreground">{formatDate(s.created_at)}</TableCell>
                   <TableCell>
                     <div className="flex gap-1">
@@ -215,7 +215,7 @@ export function McpServersPage() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="server-desc">Description</Label>
-              <Textarea id="server-desc" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="What does this MCP server do?" rows={2} />
+              <Textarea id="server-desc" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="What does this MCP server do?" rows={2} className="max-h-32 overflow-y-auto" />
             </div>
             <div className="space-y-2">
               <Label htmlFor="server-repo">Repository URL</Label>
@@ -223,7 +223,7 @@ export function McpServersPage() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="server-manifest">Manifest JSON</Label>
-              <Textarea id="server-manifest" value={manifestJson} onChange={(e) => setManifestJson(e.target.value)} placeholder='{"mcpServers": {...}}' rows={5} className="font-mono text-xs" />
+              <Textarea id="server-manifest" value={manifestJson} onChange={(e) => setManifestJson(e.target.value)} placeholder='{"mcpServers": {...}}' rows={5} className="font-mono text-xs max-h-60 overflow-y-auto" />
               <p className="text-xs text-muted-foreground">Paste the contents of your .mcp.json or server configuration.</p>
             </div>
             <div className="flex justify-end gap-2">
@@ -247,7 +247,7 @@ export function McpServersPage() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="edit-server-desc">Description</Label>
-              <Textarea id="edit-server-desc" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="What does this MCP server do?" rows={2} />
+              <Textarea id="edit-server-desc" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="What does this MCP server do?" rows={2} className="max-h-32 overflow-y-auto" />
             </div>
             <div className="space-y-2">
               <Label htmlFor="edit-server-repo">Repository URL</Label>
@@ -255,7 +255,7 @@ export function McpServersPage() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="edit-server-manifest">Manifest JSON</Label>
-              <Textarea id="edit-server-manifest" value={manifestJson} onChange={(e) => setManifestJson(e.target.value)} placeholder='{"mcpServers": {...}}' rows={5} className="font-mono text-xs" />
+              <Textarea id="edit-server-manifest" value={manifestJson} onChange={(e) => setManifestJson(e.target.value)} placeholder='{"mcpServers": {...}}' rows={5} className="font-mono text-xs max-h-60 overflow-y-auto" />
             </div>
             <div className="flex justify-end gap-2">
               <Button type="button" variant="ghost" onClick={() => setEditTarget(null)}>Cancel</Button>

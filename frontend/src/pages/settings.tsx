@@ -1,5 +1,5 @@
 import { FileText, Github, Moon, RefreshCw, Shield, Sun, UserX } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -250,7 +250,7 @@ function AuditLogCard() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("");
 
-  function fetchLogs(resourceType?: string) {
+  const fetchLogs = useCallback((resourceType?: string) => {
     setLoading(true);
     const params = new URLSearchParams({ limit: "50" });
     if (resourceType) params.set("resource_type", resourceType);
@@ -261,11 +261,11 @@ function AuditLogCard() {
       })
       .catch(() => toast.error("Failed to load audit logs"))
       .finally(() => setLoading(false));
-  }
+  }, []);
 
   useEffect(() => {
     fetchLogs(filter || undefined);
-  }, [filter]);
+  }, [filter, fetchLogs]);
 
   function formatTime(iso: string) {
     const d = new Date(iso);

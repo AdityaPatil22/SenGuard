@@ -63,7 +63,7 @@ async def list_github_repos(
 
     gh_token = decrypt_token(current_user.github_token)
 
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(timeout=15) as client:
         try:
             resp = await client.get(
                 "https://api.github.com/user/repos",
@@ -80,6 +80,8 @@ async def list_github_repos(
             if e.response.status_code == 403:
                 raise BadRequestError("GitHub API rate limit exceeded — try again later") from None
             raise BadRequestError("Failed to fetch GitHub repositories") from None
+        except httpx.HTTPError:
+            raise BadRequestError("Unable to reach GitHub — please try again") from None
 
     repos = [
         {

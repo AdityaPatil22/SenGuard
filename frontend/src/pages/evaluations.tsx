@@ -1,14 +1,17 @@
 import {
+  Ban,
   CheckCircle2,
   Clock,
   FlaskConical,
   Loader2,
+  MoreVertical,
   Play,
   Plus,
   Search,
+  Trash2,
   XCircle,
 } from "lucide-react";
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
@@ -23,8 +26,14 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useDatasets } from "@/hooks/use-datasets";
 import { useMcpServers } from "@/hooks/use-mcp-servers";
 import { useSkills } from "@/hooks/use-skills";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { PipelineStepper } from "@/components/pipeline-stepper";
-import { useEvaluations, useCreateEvaluation, useRunEvaluation, useEvaluationStream } from "@/hooks/use-evaluations";
+import { useEvaluations, useCreateEvaluation, useRunEvaluation, useEvaluationStream, useDeleteEvaluation, useCancelEvaluation } from "@/hooks/use-evaluations";
 import { useProjects } from "@/hooks/use-projects";
 import type { Evaluation, EvaluationStatus } from "@/types/api";
 import { riskColor, riskLabel } from "@/lib/utils";
@@ -49,12 +58,16 @@ function EvaluationCard({
   onRun,
   isRunPending,
   onClick,
+  onDelete,
+  onCancel,
 }: {
   evaluation: Evaluation;
   projectName: string;
   onRun: (ev: React.MouseEvent) => void;
   isRunPending: boolean;
   onClick: () => void;
+  onDelete: (ev: React.MouseEvent) => void;
+  onCancel: (ev: React.MouseEvent) => void;
 }) {
   const status = e.status.toLowerCase() as EvaluationStatus;
   const config = STATUS_CONFIG[status] || STATUS_CONFIG.pending;
@@ -114,6 +127,29 @@ function EvaluationCard({
                 Run
               </Button>
             )}
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                render={
+                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={(ev) => ev.stopPropagation()}>
+                    <MoreVertical className="h-4 w-4" />
+                  </Button>
+                }
+              />
+              <DropdownMenuContent align="end">
+                {status === "running" && (
+                  <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={onCancel}>
+                    <Ban className="h-4 w-4 mr-2" />
+                    Cancel evaluation
+                  </DropdownMenuItem>
+                )}
+                {status !== "running" && (
+                  <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={onDelete}>
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Delete evaluation
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
       </CardContent>
@@ -129,6 +165,8 @@ export function EvaluationsPage() {
   const { data: skills = [] } = useSkills();
   const createEvaluation = useCreateEvaluation();
   const runEvaluation = useRunEvaluation();
+  const removeEvaluation = useDeleteEvaluation();
+  const cancelEval = useCancelEvaluation();
   const navigate = useNavigate();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [evalType, setEvalType] = useState<"application" | "dataset" | "mcp_server" | "skill">("application");
@@ -145,18 +183,18 @@ export function EvaluationsPage() {
     if (isDone) setRunningEvalId(null);
   }, [isDone]);
 
-  const projectMap = Object.fromEntries(projects.map((p) => [p.id, p.name]));
-  const datasetMap = Object.fromEntries(datasets.map((d) => [d.id, d.name]));
-  const mcpServerMap = Object.fromEntries(mcpServers.map((s) => [s.id, s.name]));
-  const skillMap = Object.fromEntries(skills.map((s) => [s.id, s.name]));
+  const projectMap = useMemo(() => Object.fromEntries(projects.map((p) => [p.id, p.name])), [projects]);
+  const datasetMap = useMemo(() => Object.fromEntries(datasets.map((d) => [d.id, d.name])), [datasets]);
+  const mcpServerMap = useMemo(() => Object.fromEntries(mcpServers.map((s) => [s.id, s.name])), [mcpServers]);
+  const skillMap = useMemo(() => Object.fromEntries(skills.map((s) => [s.id, s.name])), [skills]);
 
-  function getSubjectName(e: Evaluation): string {
+  const getSubjectName = useCallback((e: Evaluation): string => {
     if (e.project_id) return projectMap[e.project_id] ?? "Unknown Project";
     if (e.dataset_id) return datasetMap[e.dataset_id] ?? "Dataset Evaluation";
     if (e.mcp_server_id) return mcpServerMap[e.mcp_server_id] ?? "MCP Server";
     if (e.skill_id) return skillMap[e.skill_id] ?? "AI Skill";
     return "Standalone Evaluation";
-  }
+  }, [projectMap, datasetMap, mcpServerMap, skillMap]);
 
   const filtered = useMemo(() => {
     if (!search.trim()) return evaluations;
@@ -166,7 +204,7 @@ export function EvaluationsPage() {
       const model = e.model_name?.toLowerCase() ?? "";
       return name.includes(q) || model.includes(q);
     });
-  }, [evaluations, search, projectMap, datasetMap, mcpServerMap, skillMap]);
+  }, [evaluations, search, getSubjectName]);
 
   function resetDialog() {
     setEvalType("application");
@@ -181,10 +219,10 @@ export function EvaluationsPage() {
     e.preventDefault();
     createEvaluation.mutate(
       {
-        project_id: projectId || undefined,
-        dataset_id: datasetId || undefined,
-        mcp_server_id: mcpServerId || undefined,
-        skill_id: skillId || undefined,
+        project_id: evalType === "application" ? projectId || undefined : undefined,
+        dataset_id: evalType === "dataset" ? datasetId || undefined : undefined,
+        mcp_server_id: evalType === "mcp_server" ? mcpServerId || undefined : undefined,
+        skill_id: evalType === "skill" ? skillId || undefined : undefined,
         model_name: modelName || undefined,
       },
       {
@@ -208,6 +246,25 @@ export function EvaluationsPage() {
         setRunningEvalId(id);
       },
       onError: () => toast.error("Failed to run evaluation"),
+    });
+  }
+
+  function handleDelete(id: string, e: React.MouseEvent) {
+    e.stopPropagation();
+    removeEvaluation.mutate(id, {
+      onSuccess: () => toast.success("Evaluation deleted"),
+      onError: () => toast.error("Failed to delete evaluation"),
+    });
+  }
+
+  function handleCancel(id: string, e: React.MouseEvent) {
+    e.stopPropagation();
+    cancelEval.mutate(id, {
+      onSuccess: () => {
+        toast.success("Evaluation cancelled");
+        if (runningEvalId === id) setRunningEvalId(null);
+      },
+      onError: () => toast.error("Failed to cancel evaluation"),
     });
   }
 
@@ -282,6 +339,8 @@ export function EvaluationsPage() {
                     projectName={getSubjectName(e)}
                     isRunPending={runEvaluation.isPending && runEvaluation.variables === e.id}
                     onRun={(ev) => handleRun(e.id, ev)}
+                    onDelete={(ev) => handleDelete(e.id, ev)}
+                    onCancel={(ev) => handleCancel(e.id, ev)}
                     onClick={() => navigate(`/evaluations/${e.id}`)}
                   />
                   {runningEvalId === e.id && Object.keys(nodes).length > 0 && (
@@ -317,7 +376,7 @@ export function EvaluationsPage() {
                     type="button"
                     variant={evalType === key ? "default" : "outline"}
                     size="sm"
-                    onClick={() => { setEvalType(key); resetDialog(); setEvalType(key); }}
+                    onClick={() => { resetDialog(); setEvalType(key); }}
                   >
                     {label}
                   </Button>

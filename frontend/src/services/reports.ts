@@ -22,8 +22,12 @@ export async function rejectReport(id: string, comment: string) {
 }
 
 export async function exportReport(id: string) {
-  const { data } = await api.get(`/reports/${id}/export`, { responseType: "blob" });
-  const url = URL.createObjectURL(data);
+  const { data } = await api.get(`/reports/${id}/export`, {
+    responseType: "blob",
+    headers: { Accept: "application/json" },
+  });
+  const blob = data instanceof Blob ? data : new Blob([JSON.stringify(data)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
   a.download = `report-${id.slice(0, 8)}.json`;

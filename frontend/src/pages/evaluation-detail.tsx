@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import ReactMarkdown from "react-markdown";
+import { toast } from "sonner";
 import {
   AlertTriangle,
   ChevronDown,
@@ -8,7 +9,9 @@ import {
   CheckCircle2,
   Loader2,
   ShieldCheck,
+  Trash2,
   XCircle,
+  Ban,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -30,9 +33,23 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { PipelineStepper } from "@/components/pipeline-stepper";
-import { useEvaluation, useEvaluationStream } from "@/hooks/use-evaluations";
+import { useEvaluation, useEvaluationStream, useDeleteEvaluation, useCancelEvaluation } from "@/hooks/use-evaluations";
 import { useProjects } from "@/hooks/use-projects";
+import { useDatasets } from "@/hooks/use-datasets";
+import { useMcpServers } from "@/hooks/use-mcp-servers";
+import { useSkills } from "@/hooks/use-skills";
 import type { EvaluationStatus } from "@/types/api";
 import { riskColor, riskLabel } from "@/lib/utils";
 
@@ -134,7 +151,7 @@ function FindingRow({ f }: { f: ScannerFinding }) {
 // ---------------------------------------------------------------------------
 
 function FindingsTab({ scanners }: { scanners: Record<string, unknown> }) {
-  const findings = (scanners.findings || []) as ScannerFinding[];
+  const findings = useMemo(() => (scanners.findings || []) as ScannerFinding[], [scanners.findings]);
   const summary = scanners.summary as Record<string, number> | undefined;
   const scannersUsed = (scanners.scanners_used || []) as string[];
 
@@ -296,14 +313,24 @@ function AnalysisTab({ data }: { data: Record<string, unknown> }) {
 
 export function EvaluationDetailPage() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const { data: evaluation, isLoading } = useEvaluation(id);
   const { data: projects = [] } = useProjects();
-  const projectName = evaluation
+  const { data: datasets = [] } = useDatasets();
+  const { data: mcpServers = [] } = useMcpServers();
+  const { data: skills = [] } = useSkills();
+  const deleteEvaluation = useDeleteEvaluation();
+  const cancelEvaluation = useCancelEvaluation();
+  const subjectName = evaluation
     ? evaluation.evaluation_type === "application"
       ? projects.find((p) => p.id === evaluation.project_id)?.name ?? "Unknown Project"
       : evaluation.evaluation_type === "dataset"
-        ? "Dataset Evaluation"
-        : "Standalone Evaluation"
+        ? datasets.find((d) => d.id === evaluation.dataset_id)?.name ?? "Dataset Evaluation"
+        : evaluation.evaluation_type === "mcp_server"
+          ? mcpServers.find((s) => s.id === evaluation.mcp_server_id)?.name ?? "MCP Server"
+          : evaluation.evaluation_type === "skill"
+            ? skills.find((s) => s.id === evaluation.skill_id)?.name ?? "AI Skill"
+            : "Standalone Evaluation"
     : "";
 
   const status = (evaluation?.status.toLowerCase() ?? "pending") as EvaluationStatus;
@@ -353,7 +380,7 @@ export function EvaluationDetailPage() {
           </BreadcrumbItem>
           <BreadcrumbSeparator />
           <BreadcrumbItem>
-            <BreadcrumbPage>{projectName}</BreadcrumbPage>
+            <BreadcrumbPage>{subjectName}</BreadcrumbPage>
           </BreadcrumbItem>
         </BreadcrumbList>
       </Breadcrumb>
@@ -379,6 +406,64 @@ export function EvaluationDetailPage() {
         <Separator orientation="vertical" className="h-5 hidden sm:block" />
         <span className="text-sm text-muted-foreground">{evaluation.model_name || "Default model"}</span>
         <span className="text-sm text-muted-foreground">{formatDate(evaluation.created_at)}</span>
+
+        <div className="ml-auto flex items-center gap-2">
+          {isRunning && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5 text-destructive hover:text-destructive"
+              disabled={cancelEvaluation.isPending}
+              onClick={() =>
+                cancelEvaluation.mutate(evaluation.id, {
+                  onSuccess: () => toast.success("Evaluation cancelled"),
+                  onError: () => toast.error("Failed to cancel evaluation"),
+                })
+              }
+            >
+              <Ban className="h-3.5 w-3.5" />
+              {cancelEvaluation.isPending ? "Cancelling..." : "Cancel"}
+            </Button>
+          )}
+          {status !== "running" && (
+            <AlertDialog>
+              <AlertDialogTrigger
+                render={
+                  <Button variant="outline" size="sm" className="gap-1.5 text-destructive hover:text-destructive">
+                    <Trash2 className="h-3.5 w-3.5" />
+                    Delete
+                  </Button>
+                }
+              />
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete evaluation?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will permanently delete this evaluation and its report. This action cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    className="bg-destructive text-white hover:bg-destructive/90"
+                    disabled={deleteEvaluation.isPending}
+                    onClick={() =>
+                      deleteEvaluation.mutate(evaluation.id, {
+                        onSuccess: () => {
+                          toast.success("Evaluation deleted");
+                          navigate("/evaluations");
+                        },
+                        onError: () => toast.error("Failed to delete evaluation"),
+                      })
+                    }
+                  >
+                    {deleteEvaluation.isPending ? "Deleting..." : "Delete"}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
+        </div>
       </div>
 
       {/* Error banner */}
@@ -402,6 +487,17 @@ export function EvaluationDetailPage() {
 
       {/* Pipeline stepper */}
       {isRunning && <PipelineStepper nodes={nodes} />}
+
+      {/* Running info banner */}
+      {isRunning && Object.keys(nodes).length === 0 && (
+        <div className="rounded-lg border border-warning/30 bg-warning/5 p-4">
+          <p className="text-sm font-medium text-warning mb-1">Evaluation in progress</p>
+          <p className="text-sm text-muted-foreground">
+            This page will update automatically when results are available. You can safely navigate away — the
+            evaluation continues in the background.
+          </p>
+        </div>
+      )}
 
       {/* Tabbed content */}
       <Tabs defaultValue="report">

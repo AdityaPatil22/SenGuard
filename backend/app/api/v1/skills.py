@@ -48,6 +48,8 @@ async def create_skill(
     if file_data and len(file_data) > MAX_FILE_SIZE:
         raise BadRequestError(f"File too large (max {MAX_FILE_SIZE // 1024 // 1024}MB)")
     file_name = file.filename if file else None
+    if file_data and not file_name:
+        raise BadRequestError("Uploaded file must have a filename")
     skill = await service.create(
         name=name,
         skill_type=skill_type,

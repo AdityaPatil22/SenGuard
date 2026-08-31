@@ -96,7 +96,25 @@ def _serialize(report: Report) -> dict:
     evaluation = report.evaluation
     project = evaluation.project if evaluation and evaluation.project_id else None
     dataset = evaluation.dataset if evaluation and evaluation.dataset_id else None
-    name = project.name if project else dataset.name if dataset else None
+    mcp_server = evaluation.mcp_server if evaluation and evaluation.mcp_server_id else None
+    skill = evaluation.skill if evaluation and evaluation.skill_id else None
+
+    if project:
+        subject_name = project.name
+        eval_type = "application"
+    elif dataset:
+        subject_name = dataset.name
+        eval_type = "dataset"
+    elif mcp_server:
+        subject_name = mcp_server.name
+        eval_type = "mcp_server"
+    elif skill:
+        subject_name = skill.name
+        eval_type = "skill"
+    else:
+        subject_name = None
+        eval_type = "standalone"
+
     return {
         "id": str(report.id),
         "content": report.content,
@@ -105,12 +123,8 @@ def _serialize(report: Report) -> dict:
         "evaluation_id": str(report.evaluation_id),
         "reviewer_id": str(report.reviewer_id) if report.reviewer_id else None,
         "project_id": str(evaluation.project_id) if evaluation and evaluation.project_id else None,
-        "subject_name": name,
-        "evaluation_type": "application"
-        if evaluation and evaluation.project_id
-        else "dataset"
-        if evaluation and evaluation.dataset_id
-        else "standalone",
+        "subject_name": subject_name,
+        "evaluation_type": eval_type,
         "risk_score": evaluation.risk_score if evaluation else None,
         "created_at": report.created_at.isoformat(),
         "updated_at": report.updated_at.isoformat(),

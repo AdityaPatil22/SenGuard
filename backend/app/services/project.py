@@ -7,6 +7,7 @@ from app.core.exceptions import ForbiddenError, NotFoundError
 from app.models.dataset import Dataset
 from app.models.evaluation import Evaluation
 from app.models.project import Project, ProjectStatus
+from app.models.user import UserRole
 from app.models.report import Report
 from app.models.user import User
 from app.repositories.project import ProjectRepository
@@ -53,6 +54,8 @@ class ProjectService:
         skip: int = 0,
         limit: int = 100,
     ) -> list[Project]:
+        if user.role == UserRole.ADMIN:
+            return await self.repo.get_all(skip, limit)
         return await self.repo.get_by_owner(user.id, skip, limit)
 
     async def update(
@@ -77,7 +80,7 @@ class ProjectService:
         await self.repo.delete(project)
 
     def _check_owner(self, project: Project, user: User) -> None:
-        if user.role == "admin":
+        if user.role == UserRole.ADMIN:
             return
         if project.owner_id != user.id:
             raise ForbiddenError("Only the project owner can access this project")

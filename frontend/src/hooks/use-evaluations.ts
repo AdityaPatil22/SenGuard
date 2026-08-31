@@ -2,7 +2,14 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState, useCallback } from "react";
 
 import api from "@/services/api";
-import { getEvaluations, getEvaluation, createEvaluation, runEvaluation } from "@/services/evaluations";
+import {
+  getEvaluations,
+  getEvaluation,
+  createEvaluation,
+  runEvaluation,
+  deleteEvaluation,
+  cancelEvaluation,
+} from "@/services/evaluations";
 import type { CreateEvaluationRequest } from "@/types/api";
 import type { NodeStatus } from "@/components/pipeline-stepper";
 
@@ -18,6 +25,10 @@ export function useEvaluation(id: string | undefined) {
     queryKey: ["evaluations", id],
     queryFn: () => getEvaluation(id!),
     enabled: !!id,
+    refetchInterval: (query) => {
+      const status = query.state.data?.status;
+      return status === "running" ? 5000 : false;
+    },
   });
 }
 
@@ -33,6 +44,24 @@ export function useRunEvaluation() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => runEvaluation(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["evaluations"] });
+    },
+  });
+}
+
+export function useDeleteEvaluation() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => deleteEvaluation(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["evaluations"] }),
+  });
+}
+
+export function useCancelEvaluation() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => cancelEvaluation(id),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["evaluations"] });
     },
@@ -56,7 +85,7 @@ export function useEvaluationStream(evaluationId: string | undefined, enabled: b
     if (enabled) {
       setState({ nodes: {}, isDone: false });
     }
-  }, [enabled]);
+  }, [enabled, evaluationId]);
 
   useEffect(() => {
     if (!enabled || !evaluationId || state.isDone) return;
@@ -65,36 +94,40 @@ export function useEvaluationStream(evaluationId: string | undefined, enabled: b
     let cancelled = false;
 
     (async () => {
-      // Exchange the JWT (via auth header) for a short-lived single-use ticket so the
-      // token never appears in the EventSource URL / server logs.
-      const { data } = await api.post(`/evaluations/${evaluationId}/stream-ticket`);
-      const ticket = data.data.ticket;
-      if (cancelled) return;
+      try {
+        const { data } = await api.post(`/evaluations/${evaluationId}/stream-ticket`);
+        const ticket = data.data.ticket;
+        if (cancelled) return;
 
-      const baseUrl = import.meta.env.VITE_API_URL || "/api/v1";
-      es = new EventSource(`${baseUrl}/evaluations/${evaluationId}/stream?ticket=${ticket}`);
-      esRef.current = es;
+        const baseUrl = import.meta.env.VITE_API_URL || "/api/v1";
+        es = new EventSource(`${baseUrl}/evaluations/${evaluationId}/stream?ticket=${ticket}`);
+        esRef.current = es;
 
-      es.onmessage = (e) => {
-        const event = JSON.parse(e.data);
+        es.onmessage = (e) => {
+          const event = JSON.parse(e.data);
 
-        if (event.type === "node:start") {
-          setState((prev) => ({ ...prev, nodes: { ...prev.nodes, [event.node]: "running" } }));
-        } else if (event.type === "node:complete") {
-          setState((prev) => ({ ...prev, nodes: { ...prev.nodes, [event.node]: "completed" } }));
-        } else if (event.type === "node:failed") {
-          setState((prev) => ({ ...prev, nodes: { ...prev.nodes, [event.node]: "failed" } }));
-        } else if (event.type === "evaluation:complete" || event.type === "evaluation:failed") {
+          if (event.type === "node:start") {
+            setState((prev) => ({ ...prev, nodes: { ...prev.nodes, [event.node]: "running" } }));
+          } else if (event.type === "node:complete") {
+            setState((prev) => ({ ...prev, nodes: { ...prev.nodes, [event.node]: "completed" } }));
+          } else if (event.type === "node:failed") {
+            setState((prev) => ({ ...prev, nodes: { ...prev.nodes, [event.node]: "failed" } }));
+          } else if (event.type === "evaluation:complete" || event.type === "evaluation:failed") {
+            setState((prev) => ({ ...prev, isDone: true }));
+            invalidateQueries();
+            es?.close();
+          }
+        };
+
+        es.onerror = () => {
           setState((prev) => ({ ...prev, isDone: true }));
           invalidateQueries();
           es?.close();
-        }
-      };
-
-      es.onerror = () => {
+        };
+      } catch {
+        setState((prev) => ({ ...prev, isDone: true }));
         invalidateQueries();
-        es?.close();
-      };
+      }
     })();
 
     return () => {

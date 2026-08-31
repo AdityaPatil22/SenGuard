@@ -1,4 +1,4 @@
-import { Pencil, Plus, Search, Sparkles, Trash2, Upload } from "lucide-react";
+import { Plus, Search, Sparkles, Trash2 } from "lucide-react";
 import { useState, useMemo, type FormEvent } from "react";
 import { toast } from "sonner";
 
@@ -19,7 +19,6 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
@@ -154,7 +153,7 @@ export function SkillsPage() {
                 <TableRow key={s.id}>
                   <TableCell className="font-medium">{s.name}</TableCell>
                   <TableCell><Badge variant={SKILL_TYPE_VARIANT[s.skill_type]}>{s.skill_type}</Badge></TableCell>
-                  <TableCell className="hidden md:table-cell text-muted-foreground max-w-xs truncate">{s.description ?? "—"}</TableCell>
+                  <TableCell className="hidden md:table-cell text-muted-foreground"><span className="block max-w-xs truncate">{s.description ?? "—"}</span></TableCell>
                   <TableCell className="hidden sm:table-cell text-muted-foreground">{formatDate(s.created_at)}</TableCell>
                   <TableCell>
                     <div className="flex gap-1">
@@ -202,12 +201,12 @@ export function SkillsPage() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="skill-desc">Description</Label>
-              <Textarea id="skill-desc" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="What does this skill do?" rows={2} />
+              <Textarea id="skill-desc" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="What does this skill do?" rows={2} className="max-h-32 overflow-y-auto" />
             </div>
             {skillType !== "plugin" ? (
               <div className="space-y-2">
                 <Label htmlFor="skill-content">{skillType === "prompt" ? "System Prompt" : "Agent Configuration"}</Label>
-                <Textarea id="skill-content" value={content} onChange={(e) => setContent(e.target.value)} placeholder={skillType === "prompt" ? "You are a helpful assistant that..." : "model: gpt-4o\ntools:\n  - ..."} rows={8} className="font-mono text-xs" />
+                <Textarea id="skill-content" value={content} onChange={(e) => setContent(e.target.value)} placeholder={skillType === "prompt" ? "You are a helpful assistant that..." : "model: gpt-4o\ntools:\n  - ..."} rows={8} className="font-mono text-xs max-h-60 overflow-y-auto" />
               </div>
             ) : (
               <div className="space-y-2">

@@ -29,6 +29,7 @@ router = APIRouter(prefix="/evaluations", tags=["evaluations"])
 # exchanges its token for a short-lived ticket instead of putting the JWT in the URL.
 _stream_tickets: dict[str, tuple[str, float]] = {}
 _TICKET_TTL = 30  # seconds
+_background_tasks: set[asyncio.Task] = set()
 
 
 async def _run_evaluation_background(evaluation_id: str):
@@ -44,20 +45,22 @@ async def _run_evaluation_background(evaluation_id: str):
             progress.complete()
         except Exception as e:
             await session.rollback()
+            error_msg = str(e)[:500]
+            logger.exception("Evaluation %s failed", evaluation_id)
             try:
                 service = EvaluationService(session)
                 evaluation = await service.get(uuid.UUID(evaluation_id))
                 await service.repo.update(
                     evaluation,
-                    {"status": EvaluationStatus.FAILED, "error_message": str(e)},
+                    {"status": EvaluationStatus.FAILED, "error_message": error_msg},
                 )
                 await session.commit()
             except Exception:
                 logger.exception("Failed to record evaluation error status for %s", evaluation_id)
-            progress.fail(str(e))
-        finally:
-            await asyncio.sleep(60)
-            progress_store.pop(evaluation_id, None)
+            progress.fail(error_msg)
+
+    await asyncio.sleep(60)
+    progress_store.pop(evaluation_id, None)
 
 
 def _serialize(evaluation) -> dict:
@@ -97,17 +100,17 @@ async def create_evaluation(
     evaluation = await service.create(
         data.model_name,
         current_user.id,
-        project_id=uuid.UUID(data.project_id) if data.project_id else None,
-        dataset_id=uuid.UUID(data.dataset_id) if data.dataset_id else None,
-        mcp_server_id=uuid.UUID(data.mcp_server_id) if data.mcp_server_id else None,
-        skill_id=uuid.UUID(data.skill_id) if data.skill_id else None,
+        project_id=data.project_id,
+        dataset_id=data.dataset_id,
+        mcp_server_id=data.mcp_server_id,
+        skill_id=data.skill_id,
     )
     return success(data=_serialize(evaluation), message="Evaluation created")
 
 
 @router.get("")
 async def list_evaluations(
-    project_id: str | None = Query(None),
+    project_id: uuid.UUID | None = Query(None),
     status: str | None = Query(None),
     evaluation_type: str | None = Query(None),
     skip: int = Query(0, ge=0),
@@ -118,7 +121,7 @@ async def list_evaluations(
     service = EvaluationService(db)
     evaluations = await service.list_all(
         current_user,
-        project_id=uuid.UUID(project_id) if project_id else None,
+        project_id=project_id,
         status=status,
         evaluation_type=evaluation_type,
         skip=skip,
@@ -179,11 +182,14 @@ async def run_evaluation(
         resource_id=eid,
         user_id=current_user.id,
     )
+    await db.commit()
 
     progress = EvaluationProgress()
     progress_store[eid] = progress
 
-    asyncio.create_task(_run_evaluation_background(eid))
+    task = asyncio.create_task(_run_evaluation_background(eid))
+    _background_tasks.add(task)
+    task.add_done_callback(_background_tasks.discard)
 
     return Response(
         content=json.dumps(success(data=_serialize(evaluation), message="Evaluation started")),
@@ -204,6 +210,63 @@ async def get_evaluation_status(
         data={"id": str(evaluation.id), "status": evaluation.status},
         message="Evaluation status",
     )
+
+
+@router.delete("/{evaluation_id}")
+async def delete_evaluation(
+    evaluation_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    service = EvaluationService(db)
+    evaluation = await service.get_owned(evaluation_id, current_user)
+
+    if evaluation.status == EvaluationStatus.RUNNING:
+        raise BadRequestError("Cannot delete a running evaluation — cancel it first")
+
+    await service.repo.delete(evaluation)
+    await create_audit_log(
+        db,
+        action="evaluation_deleted",
+        resource_type="evaluation",
+        resource_id=str(evaluation_id),
+        user_id=current_user.id,
+    )
+    return success(data=None, message="Evaluation deleted")
+
+
+@router.post("/{evaluation_id}/cancel")
+async def cancel_evaluation(
+    evaluation_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    service = EvaluationService(db)
+    evaluation = await service.get_owned(evaluation_id, current_user)
+
+    if evaluation.status != EvaluationStatus.RUNNING:
+        raise BadRequestError(f"Only running evaluations can be cancelled (current: {evaluation.status})")
+
+    await service.repo.update(
+        evaluation,
+        {
+            "status": EvaluationStatus.FAILED,
+            "error_message": "Evaluation cancelled by user",
+        },
+    )
+
+    progress = progress_store.pop(str(evaluation_id), None)
+    if progress:
+        progress.fail("Cancelled by user")
+
+    await create_audit_log(
+        db,
+        action="evaluation_cancelled",
+        resource_type="evaluation",
+        resource_id=str(evaluation_id),
+        user_id=current_user.id,
+    )
+    return success(data=_serialize(evaluation), message="Evaluation cancelled")
 
 
 @router.post("/{evaluation_id}/stream-ticket")
@@ -237,13 +300,18 @@ async def stream_evaluation(
         raise UnauthorizedError("Invalid or expired stream ticket")
 
     progress = progress_store.get(eid)
+    _STREAM_TIMEOUT = 600  # 10 minutes max
 
     async def event_generator():
         if not progress:
             yield f"data: {json.dumps({'type': 'evaluation:complete'})}\n\n"
             return
 
+        deadline = asyncio.get_running_loop().time() + _STREAM_TIMEOUT
         async for event in progress.stream():
             yield f"data: {json.dumps(event)}\n\n"
+            if asyncio.get_running_loop().time() > deadline:
+                yield f"data: {json.dumps({'type': 'evaluation:timeout'})}\n\n"
+                return
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")

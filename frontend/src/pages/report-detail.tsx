@@ -148,7 +148,7 @@ export function ReportDetailPage() {
               variant="outline"
               size="sm"
               className="gap-1.5"
-              onClick={() => exportReport(report.id)}
+              onClick={() => exportReport(report.id).catch(() => toast.error("Failed to export report"))}
             >
               <Download className="h-3.5 w-3.5" />
               Export JSON
@@ -174,7 +174,7 @@ export function ReportDetailPage() {
         <p className="text-sm text-muted-foreground">No report content available.</p>
       )}
 
-      <Dialog open={rejectOpen} onOpenChange={setRejectOpen}>
+      <Dialog open={rejectOpen} onOpenChange={(open) => { setRejectOpen(open); if (!open) setRejectComment(""); }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Reject Report</DialogTitle>

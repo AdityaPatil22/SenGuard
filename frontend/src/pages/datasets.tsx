@@ -170,9 +170,9 @@ export function DatasetsPage() {
                 ) : (
                   filtered.map((d) => (
                     <TableRow key={d.id}>
-                      <TableCell className="font-medium max-w-[200px] truncate">{d.name}</TableCell>
-                      <TableCell className="hidden md:table-cell text-muted-foreground max-w-xs truncate">
-                        {d.description ?? "—"}
+                      <TableCell className="font-medium"><span className="block max-w-50 truncate">{d.name}</span></TableCell>
+                      <TableCell className="hidden md:table-cell text-muted-foreground">
+                        <span className="block max-w-xs truncate">{d.description ?? "—"}</span>
                       </TableCell>
                       <TableCell className="hidden sm:table-cell text-muted-foreground">{d.record_count ?? "—"}</TableCell>
                       <TableCell className="hidden sm:table-cell text-muted-foreground">

@@ -18,6 +18,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   logout: () => {
     localStorage.removeItem("access_token");
     localStorage.removeItem("refresh_token");
+    queryClient.cancelQueries();
     queryClient.clear();
     set({ isAuthenticated: false });
   },

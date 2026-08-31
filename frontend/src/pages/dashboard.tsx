@@ -6,6 +6,7 @@ import {
   FolderKanban,
   ShieldAlert,
 } from "lucide-react";
+import { useMemo } from "react";
 import { Link } from "react-router-dom";
 
 import { Badge } from "@/components/ui/badge";
@@ -13,9 +14,12 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Counter } from "@/components/ui/counter";
 import { Empty, EmptyMedia, EmptyTitle, EmptyDescription } from "@/components/ui/empty";
+import { useDatasets } from "@/hooks/use-datasets";
 import { useEvaluations } from "@/hooks/use-evaluations";
+import { useMcpServers } from "@/hooks/use-mcp-servers";
 import { useProjects } from "@/hooks/use-projects";
 import { useReports } from "@/hooks/use-reports";
+import { useSkills } from "@/hooks/use-skills";
 import { riskColor, riskLabel } from "@/lib/utils";
 
 import type { Evaluation, Report } from "@/types/api";
@@ -40,11 +44,24 @@ function formatDate(iso: string) {
 
 export function DashboardPage() {
   const { data: projects = [] } = useProjects();
+  const { data: datasets = [] } = useDatasets();
+  const { data: mcpServers = [] } = useMcpServers();
+  const { data: skills = [] } = useSkills();
   const { data: evaluations = [] } = useEvaluations();
   const { data: reports = [] } = useReports();
 
-  const projectMap = new Map(projects.map((p) => [p.id, p.name]));
-  const projectName = (id: string | null) => id ? (projectMap.get(id) ?? "Unknown project") : "Dataset Evaluation";
+  const projectMap = useMemo(() => new Map(projects.map((p) => [p.id, p.name])), [projects]);
+  const datasetMap = useMemo(() => new Map(datasets.map((d) => [d.id, d.name])), [datasets]);
+  const mcpServerMap = useMemo(() => new Map(mcpServers.map((s) => [s.id, s.name])), [mcpServers]);
+  const skillMap = useMemo(() => new Map(skills.map((s) => [s.id, s.name])), [skills]);
+
+  function subjectName(e: Evaluation): string {
+    if (e.project_id) return projectMap.get(e.project_id) ?? "Unknown Project";
+    if (e.dataset_id) return datasetMap.get(e.dataset_id) ?? "Dataset Evaluation";
+    if (e.mcp_server_id) return mcpServerMap.get(e.mcp_server_id) ?? "MCP Server";
+    if (e.skill_id) return skillMap.get(e.skill_id) ?? "AI Skill";
+    return "Standalone Evaluation";
+  }
 
   const scoredEvals = evaluations.filter((e) => e.risk_score != null);
   const avgRisk =
@@ -124,9 +141,9 @@ export function DashboardPage() {
             ) : (
               <div className="space-y-3">
                 {needsAttention.map((e) => (
-                  <Link key={e.id} to={`/evaluations`} className="flex items-center justify-between rounded-md p-2 transition-colors hover:bg-muted/50">
+                  <Link key={e.id} to={`/evaluations/${e.id}`} className="flex items-center justify-between rounded-md p-2 transition-colors hover:bg-muted/50">
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-medium">{projectName(e.project_id)}</p>
+                      <p className="truncate text-sm font-medium">{subjectName(e)}</p>
                       <p className="text-xs text-muted-foreground">{formatDate(e.created_at)}</p>
                     </div>
                     <Badge variant={EVAL_STATUS_VARIANT[e.status] ?? "secondary"}>{e.status}</Badge>
@@ -155,7 +172,7 @@ export function DashboardPage() {
             ) : (
               <div className="space-y-3">
                 {needsReview.map((r) => (
-                  <Link key={r.id} to={`/reports`} className="flex items-center justify-between rounded-md p-2 transition-colors hover:bg-muted/50">
+                  <Link key={r.id} to={`/reports/${r.id}`} className="flex items-center justify-between rounded-md p-2 transition-colors hover:bg-muted/50">
                     <div className="min-w-0">
                       <p className="truncate text-sm font-medium">{r.subject_name}</p>
                       <p className="text-xs text-muted-foreground">
@@ -193,9 +210,9 @@ export function DashboardPage() {
             ) : (
               <div className="space-y-3">
                 {recentFindings.map((e) => (
-                  <Link key={e.id} to={`/evaluations`} className="flex items-center justify-between rounded-md p-2 transition-colors hover:bg-muted/50">
+                  <Link key={e.id} to={`/evaluations/${e.id}`} className="flex items-center justify-between rounded-md p-2 transition-colors hover:bg-muted/50">
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-medium">{projectName(e.project_id)}</p>
+                      <p className="truncate text-sm font-medium">{subjectName(e)}</p>
                       <p className="text-xs text-muted-foreground">{formatDate(e.created_at)}</p>
                     </div>
                     <span className={`text-xs font-medium ${riskColor(e.risk_score)}`}>
