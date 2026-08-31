@@ -37,7 +37,7 @@ export interface Project {
 
 export interface Evaluation {
   id: string;
-  evaluation_type: "application" | "dataset" | "standalone";
+  evaluation_type: "application" | "dataset" | "mcp_server" | "skill" | "standalone";
   status: EvaluationStatus;
   risk_score: number | null;
   summary: string | null;
@@ -46,6 +46,8 @@ export interface Evaluation {
   error_message: string | null;
   project_id: string | null;
   dataset_id: string | null;
+  mcp_server_id: string | null;
+  skill_id: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -53,6 +55,8 @@ export interface Evaluation {
 export interface CreateEvaluationRequest {
   project_id?: string;
   dataset_id?: string;
+  mcp_server_id?: string;
+  skill_id?: string;
   model_name?: string;
 }
 
@@ -99,4 +103,51 @@ export interface GitHubRepo {
   private: boolean;
   language: string | null;
   html_url: string;
+}
+
+export type SkillType = "prompt" | "agent" | "plugin";
+
+export interface McpServer {
+  id: string;
+  name: string;
+  description: string | null;
+  manifest: Record<string, unknown> | null;
+  repo_url: string | null;
+  owner_id: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Skill {
+  id: string;
+  name: string;
+  description: string | null;
+  skill_type: SkillType;
+  content: string | null;
+  file_path: string | null;
+  owner_id: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateMcpServerRequest {
+  name: string;
+  description?: string;
+  manifest?: Record<string, unknown>;
+  repo_url?: string;
+}
+
+export interface UpdateMcpServerRequest {
+  name?: string;
+  description?: string;
+  manifest?: Record<string, unknown>;
+  repo_url?: string;
+}
+
+export interface CreateSkillRequest {
+  name: string;
+  skill_type: SkillType;
+  description?: string;
+  content?: string;
+  file?: File;
 }

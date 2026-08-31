@@ -75,7 +75,13 @@ def _serialize(evaluation) -> dict:
         if evaluation.project_id
         else "dataset"
         if evaluation.dataset_id
+        else "mcp_server"
+        if evaluation.mcp_server_id
+        else "skill"
+        if evaluation.skill_id
         else "standalone",
+        "mcp_server_id": str(evaluation.mcp_server_id) if evaluation.mcp_server_id else None,
+        "skill_id": str(evaluation.skill_id) if evaluation.skill_id else None,
         "created_at": evaluation.created_at.isoformat(),
         "updated_at": evaluation.updated_at.isoformat(),
     }
@@ -93,6 +99,8 @@ async def create_evaluation(
         current_user.id,
         project_id=uuid.UUID(data.project_id) if data.project_id else None,
         dataset_id=uuid.UUID(data.dataset_id) if data.dataset_id else None,
+        mcp_server_id=uuid.UUID(data.mcp_server_id) if data.mcp_server_id else None,
+        skill_id=uuid.UUID(data.skill_id) if data.skill_id else None,
     )
     return success(data=_serialize(evaluation), message="Evaluation created")
 

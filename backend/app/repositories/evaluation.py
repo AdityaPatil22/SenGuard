@@ -5,7 +5,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.dataset import Dataset
 from app.models.evaluation import Evaluation, EvaluationStatus
+from app.models.mcp_server import McpServer
 from app.models.project import Project
+from app.models.skill import Skill
 from app.repositories.base import BaseRepository
 
 
@@ -42,13 +44,27 @@ class EvaluationRepository(BaseRepository[Evaluation]):
             conditions.append(Evaluation.project_id.isnot(None))
         elif evaluation_type == "dataset":
             conditions.append(Evaluation.dataset_id.isnot(None))
+        elif evaluation_type == "mcp_server":
+            conditions.append(Evaluation.mcp_server_id.isnot(None))
+        elif evaluation_type == "skill":
+            conditions.append(Evaluation.skill_id.isnot(None))
 
         query = select(Evaluation)
         if owner_id is not None:
-            query = query.outerjoin(Project, Evaluation.project_id == Project.id).outerjoin(
-                Dataset, Evaluation.dataset_id == Dataset.id
+            query = (
+                query.outerjoin(Project, Evaluation.project_id == Project.id)
+                .outerjoin(Dataset, Evaluation.dataset_id == Dataset.id)
+                .outerjoin(McpServer, Evaluation.mcp_server_id == McpServer.id)
+                .outerjoin(Skill, Evaluation.skill_id == Skill.id)
             )
-            conditions.append(or_(Project.owner_id == owner_id, Dataset.owner_id == owner_id))
+            conditions.append(
+                or_(
+                    Project.owner_id == owner_id,
+                    Dataset.owner_id == owner_id,
+                    McpServer.owner_id == owner_id,
+                    Skill.owner_id == owner_id,
+                )
+            )
 
         result = await self.db.execute(
             query.where(*conditions).order_by(Evaluation.created_at.desc()).offset(skip).limit(limit)

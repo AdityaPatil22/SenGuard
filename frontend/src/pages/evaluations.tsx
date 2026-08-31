@@ -21,6 +21,8 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useDatasets } from "@/hooks/use-datasets";
+import { useMcpServers } from "@/hooks/use-mcp-servers";
+import { useSkills } from "@/hooks/use-skills";
 import { PipelineStepper } from "@/components/pipeline-stepper";
 import { useEvaluations, useCreateEvaluation, useRunEvaluation, useEvaluationStream } from "@/hooks/use-evaluations";
 import { useProjects } from "@/hooks/use-projects";
@@ -123,13 +125,17 @@ export function EvaluationsPage() {
   const { data: evaluations = [], isLoading } = useEvaluations();
   const { data: projects = [] } = useProjects();
   const { data: datasets = [] } = useDatasets();
+  const { data: mcpServers = [] } = useMcpServers();
+  const { data: skills = [] } = useSkills();
   const createEvaluation = useCreateEvaluation();
   const runEvaluation = useRunEvaluation();
   const navigate = useNavigate();
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [evalType, setEvalType] = useState<"application" | "dataset">("application");
+  const [evalType, setEvalType] = useState<"application" | "dataset" | "mcp_server" | "skill">("application");
   const [projectId, setProjectId] = useState("");
   const [datasetId, setDatasetId] = useState("");
+  const [mcpServerId, setMcpServerId] = useState("");
+  const [skillId, setSkillId] = useState("");
   const [modelName, setModelName] = useState("");
   const [search, setSearch] = useState("");
   const [runningEvalId, setRunningEvalId] = useState<string | null>(null);
@@ -141,28 +147,50 @@ export function EvaluationsPage() {
 
   const projectMap = Object.fromEntries(projects.map((p) => [p.id, p.name]));
   const datasetMap = Object.fromEntries(datasets.map((d) => [d.id, d.name]));
+  const mcpServerMap = Object.fromEntries(mcpServers.map((s) => [s.id, s.name]));
+  const skillMap = Object.fromEntries(skills.map((s) => [s.id, s.name]));
+
+  function getSubjectName(e: Evaluation): string {
+    if (e.project_id) return projectMap[e.project_id] ?? "Unknown Project";
+    if (e.dataset_id) return datasetMap[e.dataset_id] ?? "Dataset Evaluation";
+    if (e.mcp_server_id) return mcpServerMap[e.mcp_server_id] ?? "MCP Server";
+    if (e.skill_id) return skillMap[e.skill_id] ?? "AI Skill";
+    return "Standalone Evaluation";
+  }
 
   const filtered = useMemo(() => {
     if (!search.trim()) return evaluations;
     const q = search.toLowerCase();
     return evaluations.filter((e) => {
-      const name = (e.project_id ? projectMap[e.project_id] : e.dataset_id ? datasetMap[e.dataset_id] : "Standalone")?.toLowerCase() ?? "";
+      const name = getSubjectName(e).toLowerCase();
       const model = e.model_name?.toLowerCase() ?? "";
       return name.includes(q) || model.includes(q);
     });
-  }, [evaluations, search, projectMap]);
+  }, [evaluations, search, projectMap, datasetMap, mcpServerMap, skillMap]);
+
+  function resetDialog() {
+    setEvalType("application");
+    setProjectId("");
+    setDatasetId("");
+    setMcpServerId("");
+    setSkillId("");
+    setModelName("");
+  }
 
   function handleCreate(e: FormEvent) {
     e.preventDefault();
     createEvaluation.mutate(
-      { project_id: projectId || undefined, dataset_id: datasetId || undefined, model_name: modelName || undefined },
+      {
+        project_id: projectId || undefined,
+        dataset_id: datasetId || undefined,
+        mcp_server_id: mcpServerId || undefined,
+        skill_id: skillId || undefined,
+        model_name: modelName || undefined,
+      },
       {
         onSuccess: () => {
           setDialogOpen(false);
-          setEvalType("application");
-          setProjectId("");
-          setDatasetId("");
-          setModelName("");
+          resetDialog();
           toast.success("Evaluation created");
         },
         onError: () => {
@@ -251,7 +279,7 @@ export function EvaluationsPage() {
                 <div key={e.id} className="space-y-2">
                   <EvaluationCard
                     evaluation={e}
-                    projectName={e.evaluation_type === "application" ? (projectMap[e.project_id!] || "Unknown Project") : e.evaluation_type === "dataset" ? (datasetMap[e.dataset_id!] || "Dataset Evaluation") : "Standalone Evaluation"}
+                    projectName={getSubjectName(e)}
                     isRunPending={runEvaluation.isPending && runEvaluation.variables === e.id}
                     onRun={(ev) => handleRun(e.id, ev)}
                     onClick={() => navigate(`/evaluations/${e.id}`)}
@@ -271,34 +299,32 @@ export function EvaluationsPage() {
           <DialogHeader>
             <DialogTitle>New Evaluation</DialogTitle>
             <DialogDescription>
-              Run an evaluation through the AI governance pipeline. Select an application or dataset to evaluate.
+              Run an evaluation through the AI governance pipeline. Select what to evaluate.
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleCreate} className="space-y-4 mt-4">
             <div className="space-y-2">
               <Label>Evaluate</Label>
-              <div className="flex gap-2">
-                <Button
-                  type="button"
-                  variant={evalType === "application" ? "default" : "outline"}
-                  size="sm"
-                  className="flex-1"
-                  onClick={() => { setEvalType("application"); setDatasetId(""); }}
-                >
-                  Application
-                </Button>
-                <Button
-                  type="button"
-                  variant={evalType === "dataset" ? "default" : "outline"}
-                  size="sm"
-                  className="flex-1"
-                  onClick={() => { setEvalType("dataset"); setProjectId(""); }}
-                >
-                  Dataset
-                </Button>
+              <div className="grid grid-cols-2 gap-2">
+                {([
+                  ["application", "Application"],
+                  ["dataset", "Dataset"],
+                  ["mcp_server", "MCP Server"],
+                  ["skill", "AI Skill"],
+                ] as const).map(([key, label]) => (
+                  <Button
+                    key={key}
+                    type="button"
+                    variant={evalType === key ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => { setEvalType(key); resetDialog(); setEvalType(key); }}
+                  >
+                    {label}
+                  </Button>
+                ))}
               </div>
             </div>
-            {evalType === "application" ? (
+            {evalType === "application" && (
               <div className="space-y-2">
                 <Label>Project</Label>
                 <Select value={projectId} onValueChange={(v) => setProjectId(v ?? "")}>
@@ -316,7 +342,8 @@ export function EvaluationsPage() {
                   </SelectContent>
                 </Select>
               </div>
-            ) : (
+            )}
+            {evalType === "dataset" && (
               <div className="space-y-2">
                 <Label>Dataset</Label>
                 <Select value={datasetId} onValueChange={(v) => setDatasetId(v ?? "")}>
@@ -329,6 +356,44 @@ export function EvaluationsPage() {
                     {datasets.map((d) => (
                       <SelectItem key={d.id} value={d.id} label={d.name}>
                         {d.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            {evalType === "mcp_server" && (
+              <div className="space-y-2">
+                <Label>MCP Server</Label>
+                <Select value={mcpServerId} onValueChange={(v) => setMcpServerId(v ?? "")}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select an MCP server">
+                      {(value: string) => value ? mcpServerMap[value] ?? value : null}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {mcpServers.map((s) => (
+                      <SelectItem key={s.id} value={s.id} label={s.name}>
+                        {s.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            {evalType === "skill" && (
+              <div className="space-y-2">
+                <Label>AI Skill</Label>
+                <Select value={skillId} onValueChange={(v) => setSkillId(v ?? "")}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select a skill">
+                      {(value: string) => value ? skillMap[value] ?? value : null}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {skills.map((s) => (
+                      <SelectItem key={s.id} value={s.id} label={s.name}>
+                        {s.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -351,7 +416,15 @@ export function EvaluationsPage() {
               <Button type="button" variant="ghost" onClick={() => setDialogOpen(false)}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={createEvaluation.isPending || (evalType === "application" ? !projectId : !datasetId)}>
+              <Button
+                type="submit"
+                disabled={createEvaluation.isPending || (
+                  evalType === "application" ? !projectId :
+                  evalType === "dataset" ? !datasetId :
+                  evalType === "mcp_server" ? !mcpServerId :
+                  !skillId
+                )}
+              >
                 {createEvaluation.isPending ? "Creating..." : "Create Evaluation"}
               </Button>
             </div>

@@ -12,8 +12,10 @@ from app.db.base import Base, TimestampMixin, UUIDMixin
 
 if TYPE_CHECKING:
     from app.models.dataset import Dataset
+    from app.models.mcp_server import McpServer
     from app.models.project import Project
     from app.models.report import Report
+    from app.models.skill import Skill
 
 
 class EvaluationStatus(enum.StrEnum):
@@ -42,6 +44,16 @@ class Evaluation(Base, UUIDMixin, TimestampMixin):
         UUID(as_uuid=True), ForeignKey("datasets.id", ondelete="SET NULL"), nullable=True
     )
     dataset: Mapped[Dataset | None] = relationship(lazy="raise")
+
+    mcp_server_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("mcp_servers.id", ondelete="SET NULL"), nullable=True
+    )
+    mcp_server: Mapped[McpServer | None] = relationship(lazy="raise")
+
+    skill_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("skills.id", ondelete="SET NULL"), nullable=True
+    )
+    skill: Mapped[Skill | None] = relationship(lazy="raise")
 
     report: Mapped[Report | None] = relationship(
         back_populates="evaluation", cascade="all, delete-orphan"

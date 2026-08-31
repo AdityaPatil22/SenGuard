@@ -12,6 +12,8 @@ import { ProjectsPage } from "@/pages/projects";
 import { ProjectDetailPage } from "@/pages/project-detail";
 import { ReportsPage } from "@/pages/reports";
 import { ReportDetailPage } from "@/pages/report-detail";
+import { McpServersPage } from "@/pages/mcp-servers";
+import { SkillsPage } from "@/pages/skills";
 import { SettingsPage } from "@/pages/settings";
 
 function AuthGuard({ children }: { children: React.ReactNode }) {
@@ -41,6 +43,8 @@ export const router = createBrowserRouter([
       { path: "projects", element: <ProjectsPage /> },
       { path: "projects/:id", element: <ProjectDetailPage /> },
       { path: "datasets", element: <DatasetsPage /> },
+      { path: "mcp-servers", element: <McpServersPage /> },
+      { path: "skills", element: <SkillsPage /> },
       { path: "evaluations", element: <EvaluationsPage /> },
       { path: "evaluations/:id", element: <EvaluationDetailPage /> },
       { path: "reports", element: <ReportsPage /> },

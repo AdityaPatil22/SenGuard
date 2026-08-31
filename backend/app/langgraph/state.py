@@ -1,4 +1,4 @@
-from typing import Any, TypedDict
+from typing import Any, Literal, TypedDict
 
 
 class EvaluationState(TypedDict, total=False):
@@ -12,6 +12,14 @@ class EvaluationState(TypedDict, total=False):
     repo_path: str | None
     has_repo: bool
     evaluation_id: str | None
+    evaluation_type: Literal["application", "dataset", "mcp_server", "skill", "standalone"]
+
+    # MCP server inputs
+    mcp_manifest: dict[str, Any] | None
+
+    # Skill inputs
+    skill_content: str | None
+    skill_type: str | None
 
     # Phase 1: deterministic scan results
     scanner_results: dict[str, Any]

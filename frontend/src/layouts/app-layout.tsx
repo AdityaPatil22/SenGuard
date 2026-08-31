@@ -8,8 +8,10 @@ import {
   LogOut,
   Menu,
   Moon,
+  Server,
   Settings,
   Shield,
+  Sparkles,
   Sun,
   User,
 } from "lucide-react";
@@ -42,8 +44,10 @@ const NAV_GROUPS = [
   {
     label: "Setup",
     items: [
-      { label: "Projects", to: "/projects", icon: FolderKanban },
+      { label: "AI Applications", to: "/projects", icon: FolderKanban },
       { label: "Datasets", to: "/datasets", icon: Database },
+      { label: "MCP Servers", to: "/mcp-servers", icon: Server },
+      { label: "AI Skills", to: "/skills", icon: Sparkles },
     ],
   },
   {
